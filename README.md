@@ -38,7 +38,7 @@ Version 1 will support the following core features:
 
 **Primary:** [Clearbit Company API](https://clearbit.com/) — provides company logo, description, and industry data by domain name. Free tier available with rate limits (~50 reqs/month on the free plan).
 
-**Backup:** [API Ninjas Company Lookup](https://api-ninjas.com/api/company) or manual entry fallback — if API limits become a constraint, users can manually fill in company details, and we cache aggressively to minimize repeat calls.
+**Backup:** [API Ninjas Company Lookup](https://api-ninjas.com/api/company) or manual entry fallback, if API limits become a constraint, users can manually fill in company details, and we cache aggressively to minimize repeat calls.
 
 We've noted that several company info APIs shifted to paid-only tiers in 2024–2025, so our architecture will treat the external API as optional enrichment rather than a hard dependency.
 
@@ -46,7 +46,7 @@ We've noted that several company info APIs shifted to paid-only tiers in 2024–
 
 ## Why This Project
 
-We picked the Job Application Tracker because it strikes the right balance between technical challenge and real-world usefulness — this is genuinely an app either of us might use. It exercises exactly the skills we want to develop: OAuth authentication, external API integration with a smart fallback strategy, relational data modeling with meaningful state transitions, and a UI that actually has to respond to user actions. The stage-tracking workflow also gives the client-side work real substance, not just static pages. If we build this well, it's something worth showing at the pitch.
+We picked the Job Application Tracker because it strikes the right balance between technical challenge and real-world usefulness this is genuinely an app either of us might use. It exercises exactly the skills we want to develop: OAuth authentication, external API integration with a smart fallback strategy, relational data modeling with meaningful state transitions, and a UI that actually has to respond to user actions. The stage-tracking workflow also gives the client-side work real substance, not just static pages. If we build this well, it's something worth showing at the pitch.
 
 ---
 
