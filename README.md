@@ -4,8 +4,8 @@
 
 **Team:** High Flyers  
 **Members:**
-- Boma (server-side, client-side)
-- Aden (db-and-security)
+- Boma Okoli (server-side, client-side)
+- Aden Abdulahi (db and Coordination)
 
 ---
 
@@ -17,7 +17,7 @@ We are building **Option 3: Job Application Tracker** from the Week 4 lecture. T
 
 ## The User
 
-This app is for active job seekers who are applying to multiple companies at once and need a centralized, low-friction way to track where they stand. Their goal is to stay organized, never miss a follow-up, and get a clear picture of their pipeline at a glance.
+This app is for active job seekers who are applying to multiple companies at once and need a centralized, low-friction way to track where they stand. Their goal is to stay organized, never miss a follow-up, and get a clear picture of their pipeline at a glance. Ensure their applications meets the available jobs.
 
 ---
 
@@ -49,5 +49,22 @@ We've noted that several company info APIs shifted to paid-only tiers in 2024–
 We picked the Job Application Tracker because it strikes the right balance between technical challenge and real-world usefulness this is genuinely an app either of us might use. It exercises exactly the skills we want to develop: OAuth authentication, external API integration with a smart fallback strategy, relational data modeling with meaningful state transitions, and a UI that actually has to respond to user actions. The stage-tracking workflow also gives the client-side work real substance, not just static pages. If we build this well, it's something worth showing at the pitch.
 
 ---
+## Other bylaws for the High-Flyer Team:
+Goal: This bylaw facilitates practical cooperation and responsibility sharing between the two members of Project team-3/High-Flyer. 
 
+## Db and Coordination Role: 
+The db and coorditor will send reminder emails, organize Zoom meetings, and take the lead to ensure project work is on the right track and progressive. Ensure the safety and security of the project and its progress. Does one half of the project and ensures the project tasks and files are properly compiled. Support other member/s when it is necessary to do so. 
+
+## Service and Client-side Role: 
+The Service and Client-side member will oversee and do service and client-side related work and ensure progressiveness of the project, and send remainder/s, if necessary, specifics on areas that need attention, and effective focus. Does one half of the project and ensures the project tasks and files are properly compiled. Does one half of the project, and support other member/s when it is necessary to do so.
+
+The Service-side and Client-side will ensure that all work is organized and documented, through github repositort. 
+
+## General Role: 
+Each Team member will do a sufficient part of the project or group assignment and must make sure that she/he/they understand that the problem is solved clearly. Each member will ensure that they respect the views, ideas, methods of work, culture, and preferences of other team members. Each member will ensure that he/she/they is/are dependable and are available at the group meetings as best as possible or notify the team in advance and respond to communications accordingly.
+
+## Submitting the weekly Progress:
+As per the course-assignment the team will submit the work done on weekly bases. One team member will submit week4, and other team member will submit the next and will continue alternatively up on discusion. Each menber will ensure that the work submitted is not changed or altered unless notified who does that work and has agreed. Finally, submit the project assignment as per the instructions provided.
+
+---
 *README v1.0 — Week 4 setup. Subject to revision during Week 5 skeleton walkthrough.*
