@@ -4,8 +4,10 @@
 
 **Team:** High Flyers  
 **Members:**
-- Boma (server-side, client-side)
+- Boma (client-side)
 - Aden (db-and-security)
+- Darrell (server-side)
+- Olga (Coordinator)
 
 ---
 
