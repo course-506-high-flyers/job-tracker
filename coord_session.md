@@ -124,6 +124,45 @@ both coordinator and client-side]*
 
 ---
 
+### DB-and-security role clarification — Aden input
+
+**Boma:** Aden is responsible for the DB-and-security role. Before I finalize
+the contract, I need to make sure the schema and authorization rules are clear
+enough for Aden to implement and test.
+
+**Aden:** My role should cover the database models, relationships, login/session
+security, and ownership rules. I also want migrations noted, even if we keep
+automatic table creation during development.
+
+**Claude:** That means Aden's section should explicitly include `models.py`,
+future `migrations/`, future `alembic.ini`, and Flask-Login/session setup in
+`app.py`. The contract should also say that `SQLModel.metadata.create_all(engine)`
+is development-only and Alembic migrations become official after the schema is
+finalized.
+
+**Boma:** What schema details should Aden's test file assert?
+
+**Claude:** It should assert that `job_applications` exists with `user_id`,
+`company`, `position`, `status`, `applied_date`, `notes`, `job_url`,
+`created_at`, and `updated_at`. It should also check the `user_id -> users.id`
+foreign key and the unique constraint on `(user_id, company, position)`. For
+external API caching, it should check the `job_insights` table and its cache
+fields.
+
+**Aden:** The security behavior also needs to be tested. Anonymous users should
+be redirected to login for all `/applications` routes, and users should not be
+able to view or edit another user's application.
+
+**Claude:** Correct. The ownership rule should return 404, not 403, so users
+cannot guess which application IDs exist. Aden's role-specific failing test file
+can be named `tests/test_db_security_contract.py`.
+
+**Boma:** Decision recorded: Aden owns the DB-and-security contract tests,
+including schema, foreign keys, duplicate constraints, login-required behavior,
+ownership checks, and the future migration path.
+
+---
+
 ### Test file design — pushback on test scope
 
 **Claude:** For the client-side tests, I'll assert on HTML structure and

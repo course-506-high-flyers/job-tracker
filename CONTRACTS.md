@@ -61,6 +61,15 @@ If the answer isn't here, raise it in the team channel — the coordinator updat
 
 All routes require login unless noted. Non-authenticated requests redirect to `/login`.
 
+### Standard response and error shapes
+
+| Route type | Success shape | Error shape |
+|------------|---------------|-------------|
+| HTML GET route | Render the named template with the documented template data | Redirect to `/login?next=<url>` when anonymous; return 404 when the record is not owned by the user |
+| HTML POST route | Redirect after successful create, update, or delete; flash a success message | Re-render the form with `errors={field: message}`, status 400 for validation errors |
+| Duplicate create/update | N/A | Re-render the form with `errors={"duplicate": message}`, status 409 |
+| External API enrichment | Redirect back to the application detail page after fetch/cache attempt | Flash a warning and redirect back; do not return 500 for expected API failures |
+
 ### 2.1 Auth routes (existing skeleton — no changes)
 
 | Method | Path | Auth | Description |
@@ -134,6 +143,23 @@ All routes require login unless noted. Non-authenticated requests redirect to `/
 **Rate limit:** ~50 requests/month free tier  
 **Timeout:** 5 seconds  
 
+| Source | Endpoint URL | Auth header | Use |
+|--------|--------------|-------------|-----|
+| Clearbit Company API | `https://company.clearbit.com/v2/companies/find?domain={domain}` | `Authorization: Bearer <CLEARBIT_API_KEY>` | Primary company enrichment lookup |
+| API Ninjas Company Lookup | `https://api.api-ninjas.com/v1/company?name={company}` | `X-Api-Key: <API_NINJAS_KEY>` | Backup lookup if Clearbit is unavailable |
+
+**Normalized response shape stored by our app:**
+
+| Field | Type | Source/Meaning |
+|-------|------|----------------|
+| `company` | string | Company lookup key |
+| `rating` | float/null | Company rating when provided by API |
+| `review_count` | integer/null | Number of reviews when provided by API |
+| `industry` | string/null | Company industry/category |
+| `headquarters` | string/null | Company headquarters/location |
+| `description` | string/null | Company description/profile text |
+| `fetched_at` | datetime | Time this insight was cached |
+
 **What our code does on failure:**
 
 | Failure mode | Behavior |
@@ -172,7 +198,12 @@ All routes require login unless noted. Non-authenticated requests redirect to `/
 | Coordinator (Boma) | `CONTRACTS.md`, `tests/test_client_templates.py`, `tests/test_integration.py` | Route handlers, models |
 | Server-side (Darrell) | `app.py` route handlers, `services/company_api.py` | Templates, models |
 | Client-side (Boma) | `templates/applications/`, `templates/base.html` nav | `app.py`, `models.py` |
-| DB-and-security (Aden) | `models.py`, Flask-Login setup in `app.py` | Route handlers, templates |
+| DB-and-security (Aden) | `models.py`, future `migrations/`, future `alembic.ini`, Flask-Login setup in `app.py` | Route handlers, templates |
+
+**Aden role-specific note:** During active development, the app may still use
+`SQLModel.metadata.create_all(engine)` as a development-only schema helper.
+Once the schema is finalized, Aden owns upgrading the database path to Alembic
+migrations and making `alembic upgrade head` the official schema update command.
 
 ---
 
@@ -186,3 +217,4 @@ All routes require login unless noted. Non-authenticated requests redirect to `/
 | No email notifications | Out of scope |
 | Status not enforced at DB level | SQLModel validation only; CHECK constraint deferred to Week 7 |
 | Company API not load-tested | Rate-limit handling coded but unverified under concurrent load |
+| Alembic migrations not active yet | Development uses automatic table creation until the schema is finalized |

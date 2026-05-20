@@ -4,7 +4,7 @@ Course 506 Week 5 Skeleton — Flask + Postgres + SQLModel + Bootstrap
 Single-file Flask app demonstrating the architecture of a web application:
 - Server (Flask) handles HTTP requests
 - Database (Postgres via SQLModel) stores user state across requests
-- Sessions (Flask sessions) keep users logged in across requests
+- Flask-Login keeps users logged in across requests
 - Templates render HTML to send back to the browser
 
 The home page serves the static site you sync from your S3 bucket into
@@ -15,14 +15,16 @@ no advanced Flask patterns. Just enough to teach the architecture.
 """
 
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from flask import (
-    Flask, render_template, request, redirect, url_for, session, flash, g,
+    Flask, render_template, request, redirect, url_for, flash, g,
     send_from_directory, abort,
 )
-from sqlmodel import SQLModel, Field, Session, create_engine, select
+from flask_login import LoginManager, current_user, login_required, login_user, logout_user
+from sqlmodel import SQLModel, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from models import User
 
 # ---------------------------------------------------------------------------
 # Application setup
@@ -34,6 +36,10 @@ app = Flask(__name__)
 # In production this comes from an environment variable and is a long random string.
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-not-for-production")
 
+login_manager = LoginManager()
+login_manager.login_view = "login"
+login_manager.init_app(app)
+
 # Database URL. Postgres runs in a separate container; the URL points there.
 # For local testing without Docker, override with sqlite:
 #   DATABASE_URL=sqlite:///dev.db python app.py
@@ -44,19 +50,6 @@ engine = create_engine(DATABASE_URL, echo=False)
 
 # Path to the synced S3 content. Students populate this with `aws s3 sync`.
 S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
-
-
-# ---------------------------------------------------------------------------
-# Database model
-# ---------------------------------------------------------------------------
-
-class User(SQLModel, table=True):
-    __tablename__ = "users"
-
-    id: int | None = Field(default=None, primary_key=True)
-    username: str = Field(unique=True, index=True, max_length=80)
-    password_hash: str = Field(max_length=255)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -80,15 +73,23 @@ def close_db_session(exception=None):
         db_session.close()
 
 
+@login_manager.user_loader
+def load_user(user_id: str):
+    try:
+        user_pk = int(user_id)
+    except ValueError:
+        return None
+
+    db = get_db_session()
+    return db.get(User, user_pk)
+
+
 # Make `user` available in every Flask-rendered template (login page, register
 # page, about page, placeholder). Static files served from S3_content/ don't
 # go through templates, so this only affects Jinja2-rendered pages.
 @app.context_processor
 def inject_user():
-    user = None
-    if "user_id" in session:
-        db = get_db_session()
-        user = db.get(User, session["user_id"])
+    user = current_user if current_user.is_authenticated else None
     return {"user": user}
 
 
@@ -156,8 +157,7 @@ def register():
     db.commit()
     db.refresh(user)
 
-    # Log them in immediately after registration.
-    session["user_id"] = user.id
+    login_user(user)
     return redirect(url_for("home"))
 
 
@@ -177,17 +177,14 @@ def login():
         flash("Invalid username or password.")
         return redirect(url_for("login"))
 
-    # Set the session. The browser will receive a cookie that's a signed
-    # version of {"user_id": <id>}. On every subsequent request, the
-    # browser sends this cookie; Flask validates the signature and gives
-    # us back the user_id.
-    session["user_id"] = user.id
-    return redirect(url_for("home"))
+    login_user(user)
+    return redirect(request.args.get("next") or url_for("home"))
 
 
 @app.route("/logout", methods=["POST"])
+@login_required
 def logout():
-    session.pop("user_id", None)
+    logout_user()
     return redirect(url_for("home"))
 
 
@@ -202,8 +199,9 @@ def about():
 # First-run schema creation
 # ---------------------------------------------------------------------------
 
-# In production you'd use a migration tool (Alembic) instead.
-# For Week 5, this is enough — it creates tables if they don't exist.
+# DEVELOPMENT ONLY: this creates missing tables automatically for the current
+# classroom skeleton. Once the schema is finalized, replace this with Alembic
+# migrations and make `alembic upgrade head` the official database update path.
 SQLModel.metadata.create_all(engine)
 
 
