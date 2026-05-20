@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}My Applications — Job Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <!-- Page header row -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">My Applications</h1>
+    <a href="/applications/new" class="btn btn-primary">
+      + New Application
+    </a>
+  </div>
+
+  <!-- Status filter form -->
+  <form method="GET" action="/applications" class="mb-4">
+    <div class="row g-2 align-items-center">
+      <div class="col-auto">
+        <label for="statusFilter" class="col-form-label">Filter by status:</label>
+      </div>
+      <div class="col-auto">
+        <select name="status" id="statusFilter" class="form-select form-select-sm">
+          <option value="">All statuses</option>
+          {% for s in status_choices %}
+            <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>
+              {{ s | capitalize }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">Apply</button>
+      </div>
+      {% if status_filter %}
+      <div class="col-auto">
+        <a href="/applications" class="btn btn-link btn-sm text-muted">Clear filter</a>
+      </div>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- Applications list -->
+  {% if applications %}
+    <div class="list-group">
+      {% for app in applications %}
+        <div class="list-group-item list-group-item-action application-row">
+          <div class="d-flex w-100 justify-content-between align-items-start">
+            <div>
+              <h5 class="mb-1">
+                <a href="/applications/{{ app.id }}" class="text-decoration-none stretched-link-inner">
+                  {{ app.position }}
+                </a>
+                <span class="text-muted fw-normal"> at </span>
+                <strong>{{ app.company }}</strong>
+              </h5>
+              <small class="text-muted">Applied {{ app.applied_date }}</small>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="badge rounded-pill
+                {% if app.status == 'offered' %}bg-success
+                {% elif app.status == 'interviewing' %}bg-primary
+                {% elif app.status == 'rejected' %}bg-danger
+                {% elif app.status == 'withdrawn' %}bg-secondary
+                {% else %}bg-info text-dark{% endif %}">
+                {{ app.status | capitalize }}
+              </span>
+              <a href="/applications/{{ app.id }}" class="btn btn-sm btn-outline-secondary">
+                View
+              </a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <!-- Empty state -->
+    <div class="text-center py-5 text-muted">
+      <p class="fs-5">No applications yet{% if status_filter %} with status <em>{{ status_filter }}</em>{% endif %}.</p>
+      <a href="/applications/new" class="btn btn-primary mt-2">Add your first application</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if application %}Edit Application{% else %}New Application{% endif %} — Job Tracker
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+
+      <h1 class="h3 mb-4">
+        {% if application %}Edit Application{% else %}Add New Application{% endif %}
+      </h1>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ form_action }}">
+
+        <!-- Company -->
+        <div class="mb-3">
+          <label for="company" class="form-label">Company <span class="text-danger">*</span></label>
+          <input
+            type="text"
+            id="company"
+            name="company"
+            class="form-control {% if errors.company %}is-invalid{% endif %}"
+            value="{{ (application.company if application else '') | e }}"
+            placeholder="e.g. Acme Corp"
+            required
+          >
+          {% if errors.company %}
+            <div class="invalid-feedback">{{ errors.company }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Position -->
+        <div class="mb-3">
+          <label for="position" class="form-label">Position <span class="text-danger">*</span></label>
+          <input
+            type="text"
+            id="position"
+            name="position"
+            class="form-control {% if errors.position %}is-invalid{% endif %}"
+            value="{{ (application.position if application else '') | e }}"
+            placeholder="e.g. Software Engineer"
+            required
+          >
+          {% if errors.position %}
+            <div class="invalid-feedback">{{ errors.position }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Status -->
+        <div class="mb-3">
+          <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+          <select
+            id="status"
+            name="status"
+            class="form-select {% if errors.status %}is-invalid{% endif %}"
+            required
+          >
+            {% set current_status = application.status if application else 'applied' %}
+            <option value="applied"      {% if current_status == 'applied' %}selected{% endif %}>Applied</option>
+            <option value="interviewing" {% if current_status == 'interviewing' %}selected{% endif %}>Interviewing</option>
+            <option value="offered"      {% if current_status == 'offered' %}selected{% endif %}>Offered</option>
+            <option value="rejected"     {% if current_status == 'rejected' %}selected{% endif %}>Rejected</option>
+            <option value="withdrawn"    {% if current_status == 'withdrawn' %}selected{% endif %}>Withdrawn</option>
+          </select>
+          {% if errors.status %}
+            <div class="invalid-feedback">{{ errors.status }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Applied Date -->
+        <div class="mb-3">
+          <label for="applied_date" class="form-label">Date Applied <span class="text-danger">*</span></label>
+          <input
+            type="date"
+            id="applied_date"
+            name="applied_date"
+            class="form-control {% if errors.applied_date %}is-invalid{% endif %}"
+            value="{{ (application.applied_date | string if application else '') }}"
+            required
+          >
+          {% if errors.applied_date %}
+            <div class="invalid-feedback">{{ errors.applied_date }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Job URL -->
+        <div class="mb-3">
+          <label for="job_url" class="form-label">Job Posting URL</label>
+          <input
+            type="url"
+            id="job_url"
+            name="job_url"
+            class="form-control {% if errors.job_url %}is-invalid{% endif %}"
+            value="{{ (application.job_url if application and application.job_url else '') | e }}"
+            placeholder="https://..."
+          >
+          {% if errors.job_url %}
+            <div class="invalid-feedback">{{ errors.job_url }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-4">
+          <label for="notes" class="form-label">Notes</label>
+          <textarea
+            id="notes"
+            name="notes"
+            class="form-control {% if errors.notes %}is-invalid{% endif %}"
+            rows="4"
+            placeholder="Recruiter name, interview stages, contacts..."
+          >{{ (application.notes if application and application.notes else '') | e }}</textarea>
+          {% if errors.notes %}
+            <div class="invalid-feedback">{{ errors.notes }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Buttons -->
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            {% if application %}Save Changes{% else %}Add Application{% endif %}
+          </button>
+          
+            href="{{ '/applications/' + application.id|string if application else '/applications' }}"
+            class="btn btn-outline-secondary"
+          >
+            Cancel
+          </a>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
