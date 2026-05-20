@@ -15,6 +15,7 @@ no advanced Flask patterns. Just enough to teach the architecture.
 """
 
 import os
+from datetime import date
 from pathlib import Path
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, g,
@@ -24,7 +25,8 @@ from flask_login import LoginManager, current_user, login_required, login_user, 
 from sqlmodel import SQLModel, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import User
+from models import User, JobApplication, JobInsight
+from services.company_api import get_cached_insight, refresh_insight
 
 # ---------------------------------------------------------------------------
 # Application setup
@@ -92,6 +94,56 @@ def inject_user():
     user = current_user if current_user.is_authenticated else None
     return {"user": user}
 
+STATUS_CHOICES = ["applied", "interviewing", "offered", "rejected", "withdrawn"]
+
+
+def get_owned_application(app_id):
+    db = get_db_session()
+    app_record = db.get(JobApplication, app_id)
+
+    if not app_record:
+        abort(404)
+
+    if app_record.user_id != current_user.id:
+        abort(404)
+
+    return app_record
+
+
+def validate_application_form(form):
+    errors = {}
+
+    company = form.get("company", "").strip()
+    position = form.get("position", "").strip()
+    status = form.get("status", "").strip()
+    applied_date_raw = form.get("applied_date", "").strip()
+    notes = form.get("notes", "").strip()
+    job_url = form.get("job_url", "").strip()
+
+    if not company:
+        errors["company"] = "Company is required."
+
+    if not position:
+        errors["position"] = "Position is required."
+
+    if status not in STATUS_CHOICES:
+        errors["status"] = "Invalid status."
+
+    try:
+        applied_date = date.fromisoformat(applied_date_raw)
+    except ValueError:
+        errors["applied_date"] = "Valid applied date is required."
+        applied_date = None
+
+    return {
+        "company": company,
+        "position": position,
+        "status": status,
+        "applied_date": applied_date,
+        "notes": notes or None,
+        "job_url": job_url or None,
+        "errors": errors,
+    }
 
 # ---------------------------------------------------------------------------
 # Routes — your S3 static site
@@ -194,6 +246,181 @@ def about():
     # the assignment instructions in README.md).
     return render_template("about.html")
 
+
+@app.route("/applications")
+@login_required
+def applications_list():
+    db = get_db_session()
+    status_filter = request.args.get("status")
+
+    query = select(JobApplication).where(JobApplication.user_id == current_user.id)
+
+    if status_filter in STATUS_CHOICES:
+        query = query.where(JobApplication.status == status_filter)
+    else:
+        status_filter = None
+
+    applications = db.exec(query).all()
+
+    return render_template(
+        "applications/list.html",
+        applications=applications,
+        status_filter=status_filter,
+        status_choices=STATUS_CHOICES,
+    )
+
+
+@app.route("/applications/new", methods=["GET", "POST"])
+@login_required
+def applications_new():
+    if request.method == "GET":
+        return render_template(
+            "applications/form.html",
+            form_action="/applications/new",
+            application=None,
+            errors={},
+        )
+
+    data = validate_application_form(request.form)
+    errors = data.pop("errors")
+
+    db = get_db_session()
+
+    if errors:
+        return render_template(
+            "applications/form.html",
+            form_action="/applications/new",
+            application=type("ApplicationForm", (), data),
+            errors=errors,
+        ), 400
+
+    duplicate = db.exec(
+        select(JobApplication).where(
+            JobApplication.user_id == current_user.id,
+            JobApplication.company == data["company"],
+            JobApplication.position == data["position"],
+        )
+    ).first()
+
+    if duplicate:
+        errors["duplicate"] = "You already saved this application."
+        flash("You already saved this application.", "error")
+        return render_template(
+            "applications/form.html",
+            form_action="/applications/new",
+            application=type("ApplicationForm", (), data),
+            errors=errors,
+        ), 409
+
+    application = JobApplication(
+        user_id=current_user.id,
+        **data,
+    )
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+
+    flash("Application saved.", "success")
+    return redirect(f"/applications/{application.id}")
+
+@app.route("/applications/<int:app_id>")
+@login_required
+def applications_detail(app_id):
+    application = get_owned_application(app_id)
+    db = get_db_session()
+
+    insight = get_cached_insight(db, application.company)
+
+    return render_template(
+        "applications/detail.html",
+        application=application,
+        insight=insight,
+    )
+
+@app.route("/applications/<int:app_id>/edit", methods=["GET", "POST"])
+@login_required
+def applications_edit(app_id):
+    application = get_owned_application(app_id)
+
+    if request.method == "GET":
+        return render_template(
+            "applications/form.html",
+            form_action=f"/applications/{application.id}/edit",
+            application=application,
+            errors={},
+        )
+
+    data = validate_application_form(request.form)
+    errors = data.pop("errors")
+
+    if errors:
+        for key, value in data.items():
+            setattr(application, key, value)
+
+        return render_template(
+            "applications/form.html",
+            form_action=f"/applications/{application.id}/edit",
+            application=application,
+            errors=errors,
+        ), 400
+
+    db = get_db_session()
+
+    duplicate = db.exec(
+        select(JobApplication).where(
+            JobApplication.user_id == current_user.id,
+            JobApplication.company == data["company"],
+            JobApplication.position == data["position"],
+            JobApplication.id != application.id,
+        )
+    ).first()
+
+    if duplicate:
+        errors["duplicate"] = "You already saved this application."
+        flash("You already saved this application.", "error")
+        return render_template(
+            "applications/form.html",
+            form_action=f"/applications/{application.id}/edit",
+            application=application,
+            errors=errors,
+        ), 409
+
+    for key, value in data.items():
+        setattr(application, key, value)
+
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+
+    flash("Application updated.", "success")
+    return redirect(f"/applications/{application.id}")
+
+
+@app.route("/applications/<int:app_id>/delete", methods=["POST"])
+@login_required
+def applications_delete(app_id):
+    application = get_owned_application(app_id)
+    db = get_db_session()
+
+    db.delete(application)
+    db.commit()
+
+    flash("Application deleted.", "success")
+    return redirect("/applications")
+
+
+@app.route("/applications/<int:app_id>/insight")
+@login_required
+def applications_insight(app_id):
+    application = get_owned_application(app_id)
+    db = get_db_session()
+
+    insight = refresh_insight(db, application.company)
+
+    if insight is None:
+        flash("Company data temporarily unavailable.", "warning")
+
+    return redirect(f"/applications/{application.id}")
 
 # ---------------------------------------------------------------------------
 # First-run schema creation
