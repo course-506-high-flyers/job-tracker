@@ -16,7 +16,11 @@ no advanced Flask patterns. Just enough to teach the architecture.
 
 import os
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, g, session,
     send_from_directory, abort,
@@ -52,6 +56,11 @@ engine = create_engine(DATABASE_URL, echo=False)
 
 # Path to the synced S3 content. Students populate this with `aws s3 sync`.
 S3_CONTENT_DIR = Path(__file__).parent / "S3_content"
+
+S3_SITE_URLS = (
+    "http://506-class-2026-demo.s3-website.us-east-2.amazonaws.com",
+    "http://506-class-2026-demo.s3-website-us-west-2.amazonaws.com",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +153,20 @@ def validate_application_form(form):
         "job_url": job_url or None,
         "errors": errors,
     }
+
+
+@lru_cache(maxsize=1)
+def get_team_s3_site_url():
+    for url in S3_SITE_URLS:
+        request = Request(url, headers={"User-Agent": "job-tracker-health-check"})
+        try:
+            with urlopen(request, timeout=2) as response:
+                if 200 <= response.status < 400:
+                    return url
+        except (HTTPError, URLError, TimeoutError):
+            continue
+
+    return S3_SITE_URLS[0]
 
 # ---------------------------------------------------------------------------
 # Routes — your S3 static site
@@ -247,7 +270,7 @@ def logout():
 def about():
     # Each team replaces this content with their own About page (see
     # the assignment instructions in README.md).
-    return render_template("about.html")
+    return render_template("about.html", team_s3_site_url=get_team_s3_site_url())
 
 
 @app.route("/applications")
