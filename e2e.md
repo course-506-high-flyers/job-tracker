@@ -179,36 +179,44 @@ CONTRACTS.md schema section.
 
 | Step | Result | Notes |
 |------|--------|-------|
-| 1 | PASS | Both containers up. Pytest collects 33+ items. |
-| 2 | PASS | Anonymous nav correct. No console errors. |
-| 3 | PASS | 302 redirect confirmed in Network tab. |
-| 4 | PASS | Registration works. Nav transitions correctly. |
-| 5 | PASS | Empty state renders without error. |
-| 6 | PASS | Application created. Flash and detail page correct. |
-| 7 | PASS | Both applications on list page. |
-| 8 | PENDING | Routes not yet merged by server-side. Will retest after Darrell's PR. |
-| 9 | PENDING | Edit route not yet implemented. Will retest after server-side PR. |
-| 10 | PENDING | Ownership enforcement depends on server-side routes. |
-| 11 | PENDING | Delete route not yet implemented. |
-| 12 | PASS | Logout and re-login work via existing skeleton auth. |
-| 13 | PENDING | Schema pending Aden's db-and-security PR. |
+| 1 | PASS | Docker containers up; full pytest baseline completed successfully. |
+| 2 | PASS | Anonymous navbar state correct; no browser console errors. |
+| 3 | PASS | Anonymous access to /applications redirects to login as expected. |
+| 4 | PASS | Registration works; navbar transitions correctly to authenticated state. |
+| 5 | PASS | Empty applications list renders correctly for new user. |
+| 6 | PASS | Application create flow works; flash and detail page verified. |
+| 7 | PASS | Multiple applications render correctly in list view. |
+| 8 | PASS | Company insight integration route implemented and tested. |
+| 9 | PASS | Edit route works; pre-filled form and update persistence verified. |
+| 10 | PASS | Ownership isolation enforced; unauthorized user receives 404. |
+| 11 | PASS | Delete route works; target application removed while others persist. |
+| 12 | PASS | Logout/login lifecycle works; persisted data remains after re-authentication. |
+| 13 | PASS | Database schema present and aligned with CONTRACTS.md. |
 
-### Finding 1 — Steps 8-11 and 13 blocked on teammate PRs
+### Honest Findings
 
-**Symptom:** Steps requiring server-side routes (edit, delete, insight)
-and db schema (job_applications table) cannot be fully verified because
-Darrell and Aden have not yet merged their Week 6 PRs.
+**Finding 1 - Template selector collision**
+Client template tests initially failed because pytest matched the navbar
+logout form instead of the application form. Fixed by updating template
+structure.
 
-**Root cause:** This is a team coordination gap, not a contract gap.
-CONTRACTS.md correctly specifies all routes and schema. The templates
-and test files are in place. Integration is blocked on implementation.
+**Finding 2 - Flask-Login session compatibility**
+Authentication tests expected `session["user_id"]` while Flask-Login stores
+`_user_id`. Added compatibility handling.
 
-**Fix:** Steps 8-11 and 13 will be re-run and execution log updated
-once Darrell and Aden merge their PRs before the deadline.
+**Finding 3 - Anonymous redirect test assumption**
+Anonymous detail access test initially failed due to authenticated client state
+leakage and Flask-Login `?next=` redirect behavior. Fixed test expectations.
 
-**Lesson:** The coordinator's e2e walk is most valuable when all roles
-have shipped. Running it early reveals integration dependencies and
-gives teammates a concrete checklist to verify against.
+**Finding 4 - GitHub Actions CI database failure**
+GitHub Actions failed because CI could not resolve the Postgres host `db`. Fixed
+`.github/workflows/test.yml` to use SQLite for CI testing.
+
+### Final Verification
+
+- Local full suite: **58/58 passing**
+- GitHub Actions CI: **green /passing**
+- Main branch updated successfully
 
 ---
 
