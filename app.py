@@ -18,7 +18,7 @@ import os
 from datetime import date
 from pathlib import Path
 from flask import (
-    Flask, render_template, request, redirect, url_for, flash, g,
+    Flask, render_template, request, redirect, url_for, flash, g, session,
     send_from_directory, abort,
 )
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
@@ -210,6 +210,7 @@ def register():
     db.refresh(user)
 
     login_user(user)
+    session["user_id"] = user.id
     return redirect(url_for("home"))
 
 
@@ -230,13 +231,15 @@ def login():
         return redirect(url_for("login"))
 
     login_user(user)
+    session["user_id"] = user.id
     return redirect(request.args.get("next") or url_for("home"))
 
 
-@app.route("/logout", methods=["POST"])
+@app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
+    session.pop("user_id", None)
     return redirect(url_for("home"))
 
 

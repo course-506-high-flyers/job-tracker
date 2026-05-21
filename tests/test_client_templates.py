@@ -318,7 +318,7 @@ class TestApplicationDetailTemplate:
         assert resp.status_code == 404
 
     def test_anonymous_detail_redirects_to_login(self, client, sample_application):
+        client.get("/logout", follow_redirects=False)
         resp = client.get(f"/applications/{sample_application}", follow_redirects=False)
-        assert resp.status_code in (301, 302)
-        location = resp.headers.get("Location", "")
-        assert "login" in location
+        assert resp.status_code == 302
+        assert "/login" in resp.location
