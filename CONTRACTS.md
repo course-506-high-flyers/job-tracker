@@ -3,218 +3,175 @@
 **Team:** High Flyers  
 **Coordinator:** Boma Okoli  
 **Project:** Job Application Tracker  
-**Week:** 6  
+**Week:** 7 (OAuth + Playwright revision)
 
-This document is the authoritative spec for Week 6. All role implementations follow it.
-If a question arises about how something should behave, the answer is here.
-If the answer isn't here, raise it in the team channel — the coordinator updates this doc and the tests.
-
----
-
-## 1. Schema
-
-### Existing skeleton tables (from Week 5 — no changes this week)
-
-| Table | Column | Type | Constraints |
-|-------|--------|------|-------------|
-| `users` | `id` | INTEGER | PK, autoincrement |
-| `users` | `username` | VARCHAR(80) | NOT NULL, UNIQUE |
-| `users` | `password_hash` | VARCHAR(256) | NOT NULL |
-| `users` | `created_at` | DATETIME | NOT NULL, default=now |
-
-### New tables added in Week 6
-
-#### `job_applications`
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | INTEGER | PK, autoincrement | |
-| `user_id` | INTEGER | NOT NULL, FK → `users.id` ON DELETE CASCADE | Owner |
-| `company` | VARCHAR(120) | NOT NULL | |
-| `position` | VARCHAR(120) | NOT NULL | |
-| `status` | VARCHAR(30) | NOT NULL, DEFAULT `'applied'` | Enum: `applied`, `interviewing`, `offered`, `rejected`, `withdrawn` |
-| `applied_date` | DATE | NOT NULL | |
-| `notes` | TEXT | NULLABLE | |
-| `job_url` | VARCHAR(500) | NULLABLE | |
-| `created_at` | DATETIME | NOT NULL, default=now | |
-| `updated_at` | DATETIME | NOT NULL, default=now, onupdate=now | |
-
-**Constraints:**
-- UNIQUE on (`user_id`, `company`, `position`) — prevents duplicate applications to same role.
-
-#### `job_insights` (populated from external API)
-
-| Column | Type | Constraints | Notes |
-|--------|------|-------------|-------|
-| `id` | INTEGER | PK, autoincrement | |
-| `company` | VARCHAR(120) | NOT NULL, UNIQUE | Cached lookup key |
-| `rating` | FLOAT | NULLABLE | From API |
-| `review_count` | INTEGER | NULLABLE | From API |
-| `industry` | VARCHAR(120) | NULLABLE | From API |
-| `headquarters` | VARCHAR(200) | NULLABLE | From API |
-| `description` | TEXT | NULLABLE | From API |
-| `fetched_at` | DATETIME | NOT NULL, default=now | Cache timestamp |
+This document is the authoritative spec for Week 7 behavior. Implementation
+and tests must match this contract.
 
 ---
 
-## 2. Endpoint Contracts
+## 1. OAuth Dependency Boundary
 
-All routes require login unless noted. Non-authenticated requests redirect to `/login`.
-
-### Standard response and error shapes
-
-| Route type | Success shape | Error shape |
-|------------|---------------|-------------|
-| HTML GET route | Render the named template with the documented template data | Redirect to `/login?next=<url>` when anonymous; return 404 when the record is not owned by the user |
-| HTML POST route | Redirect after successful create, update, or delete; flash a success message | Re-render the form with `errors={field: message}`, status 400 for validation errors |
-| Duplicate create/update | N/A | Re-render the form with `errors={"duplicate": message}`, status 409 |
-| External API enrichment | Redirect back to the application detail page after fetch/cache attempt | Flash a warning and redirect back; do not return 500 for expected API failures |
-
-### 2.1 Auth routes (existing skeleton — no changes)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/login` | None | Login form |
-| POST | `/login` | None | Authenticate; redirect to `/` on success |
-| GET | `/register` | None | Registration form |
-| POST | `/register` | None | Create user; redirect to `/` on success |
-| GET | `/logout` | Required | Log out; redirect to `/login` |
-
-### 2.2 Application routes (new this week)
-
-#### `GET /applications`
-- **Auth:** Required
-- **Description:** List all applications belonging to current user
-- **Query params:** `status` (optional filter)
-- **Response:** Renders `applications/list.html`
-- **Template data:**
-  - `applications`: list of JobApplication rows for current user
-  - `status_filter`: active filter value or None
-  - `status_choices`: `["applied","interviewing","offered","rejected","withdrawn"]`
-
-#### `GET /applications/new`
-- **Auth:** Required
-- **Response:** Renders `applications/form.html`
-- **Template data:** `form_action="/applications/new"`, `application=None`, `errors={}`
-
-#### `POST /applications/new`
-- **Auth:** Required
-- **Request body:** `company`, `position`, `status`, `applied_date`, `notes`, `job_url`
-- **Success:** Insert row, redirect to `GET /applications/<id>`, flash `"Application saved."`
-- **Failure:** Re-render form with `errors` dict, status 400
-- **Error cases:**
-  - 400 — validation failure
-  - 409 — duplicate (user_id, company, position)
-
-#### `GET /applications/<id>`
-- **Auth:** Required
-- **Ownership:** 404 if not owned by current user
-- **Response:** Renders `applications/detail.html`
-- **Template data:** `application`, `insight` (may be None)
-
-#### `GET /applications/<id>/edit`
-- **Auth:** Required
-- **Ownership:** 404 if not owned
-- **Response:** Renders `applications/form.html` with application pre-filled
-
-#### `POST /applications/<id>/edit`
-- **Auth:** Required
-- **Ownership:** 404 if not owned
-- **Success:** Update row, redirect to `GET /applications/<id>`, flash `"Application updated."`
-- **Failure:** Re-render form with errors
-
-#### `POST /applications/<id>/delete`
-- **Auth:** Required
-- **Ownership:** 404 if not owned
-- **Success:** Delete row, redirect to `GET /applications`, flash `"Application deleted."`
-
-#### `GET /applications/<id>/insight`
-- **Auth:** Required
-- **Ownership:** 404 if not owned
-- **Description:** Fetch/refresh company insight, redirect to detail page
-- **On API failure:** Flash warning, redirect back — no 500
+- `external_dependency: github.com`
+- This contract specifies what **our code** does with provider responses.
+- This contract does **not** specify GitHub's exact behavior or payload
+  guarantees.
+- Representative payload shape may be used in tests/docs, but tests must not
+  claim GitHub is contractually required to return that exact shape.
 
 ---
 
-## 3. External API Contract
+## 2. OAuth Routes Contract
 
-**Service:** Clearbit Company API (primary) / API Ninjas Company Lookup (backup)  
-**Auth:** API key in header  
-**Rate limit:** ~50 requests/month free tier  
-**Timeout:** 5 seconds  
+### 2.1 `GET /login/github`
 
-| Source | Endpoint URL | Auth header | Use |
-|--------|--------------|-------------|-----|
-| Clearbit Company API | `https://company.clearbit.com/v2/companies/find?domain={domain}` | `Authorization: Bearer <CLEARBIT_API_KEY>` | Primary company enrichment lookup |
-| API Ninjas Company Lookup | `https://api.api-ninjas.com/v1/company?name={company}` | `X-Api-Key: <API_NINJAS_KEY>` | Backup lookup if Clearbit is unavailable |
+- **Auth requirement:** anonymous or authenticated users may hit route.
+- **Input:** query string optional `next` (string path, default `/`).
+- **Behavior:**
+  - stores OAuth state token and post-login redirect target in session
+  - initiates provider authorization redirect
+- **Output on success:** HTTP 302 redirect to provider authorization URL.
+- **Output on failure:** flash auth error and redirect to `/login`.
 
-**Normalized response shape stored by our app:**
+### 2.2 `GET /auth/github/callback`
 
-| Field | Type | Source/Meaning |
-|-------|------|----------------|
-| `company` | string | Company lookup key |
-| `rating` | float/null | Company rating when provided by API |
-| `review_count` | integer/null | Number of reviews when provided by API |
-| `industry` | string/null | Company industry/category |
-| `headquarters` | string/null | Company headquarters/location |
-| `description` | string/null | Company description/profile text |
-| `fetched_at` | datetime | Time this insight was cached |
-
-**What our code does on failure:**
-
-| Failure mode | Behavior |
-|---|---|
-| Timeout (>5s) | Catch `requests.Timeout`; return None; flash warning |
-| HTTP 4xx/5xx | Return None; flash warning |
-| Malformed JSON | Catch `json.JSONDecodeError`; return None; flash warning |
-| Rate limit (429) | Return None; flash `"Company data temporarily unavailable."` |
-| Empty results | Return None; no flash |
-
-**Caching:** After successful fetch, store in `job_insights`. Serve from cache if `fetched_at` less than 24 hours old.
+- **Auth requirement:** none (provider redirects here).
+- **Input:** provider callback query params (`code`, `state`, possible `error`).
+- **Precondition:** `state` must match server-side session state.
+- **Behavior:**
+  - exchanges `code` for token
+  - requests provider user info
+  - validates required fields (see Section 3)
+  - executes create-or-link logic (see Section 4)
+  - logs local user in
+- **Output on success:** HTTP 302 redirect to stored `next` or `/dashboard`.
+- **Output on failure:** clear transient OAuth session keys, flash error,
+  redirect to `/login`.
 
 ---
 
-## 4. Authorization Rules
+## 3. Provider User Info Requirements
 
-| Action | Who can do it | Non-authorized response |
-|--------|--------------|------------------------|
-| List applications | Current user (own rows only) | N/A |
-| View detail | Owner only | 404 |
-| Edit | Owner only | 404 |
-| Delete | Owner only | 404 |
-| View insight | Owner only | 404 |
-| Refresh insight | Owner only | 404 |
+Fields our app tries to read from provider user info:
 
-**OWASP-style 404 rule:** Non-owners get 404, not 403. Prevents ID enumeration.
+- `id` (required): external provider user ID, normalized to string.
+- `login` (optional): preferred username/display handle.
+- `email` (optional): email from provider profile.
+- `name` (optional): full display name.
 
-**Login requirement:** All `/applications/*` routes redirect to `/login?next=<url>` when accessed without session.
+Missing-field handling:
 
----
-
-## 5. Role Boundaries
-
-| Role | Owns | Does not touch |
-|------|------|----------------|
-| Coordinator (Boma) | `CONTRACTS.md`, `tests/test_client_templates.py`, `tests/test_integration.py` | Route handlers, models |
-| Server-side (Darrell) | `app.py` route handlers, `services/company_api.py` | Templates, models |
-| Client-side (Boma) | `templates/applications/`, `templates/base.html` nav | `app.py`, `models.py` |
-| DB-and-security (Aden) | `models.py`, future `migrations/`, future `alembic.ini`, Flask-Login setup in `app.py` | Route handlers, templates |
-
-**Aden role-specific note:** During active development, the app may still use
-`SQLModel.metadata.create_all(engine)` as a development-only schema helper.
-Once the schema is finalized, Aden owns upgrading the database path to Alembic
-migrations and making `alembic upgrade head` the official schema update command.
+- If `id` missing/null: abort callback flow, no login, redirect `/login` with
+  flash error.
+- If `login` missing/null: fallback username seed is `github_<id>`.
+- If `email` missing/null: store `NULL` email; do not crash.
+- If `name` missing/null: fallback display name to `login` or `github_<id>`.
 
 ---
 
-## 6. Known Limitations (Deliberate)
+## 4. Local Identity Model and Linking Contract
 
-| Limitation | Reason |
-|---|---|
-| No pagination on `/applications` list | Deferred to Week 7 |
-| No file upload (resume attach) | Out of scope |
-| Insight cache is time-based only | Acceptable for Week 6 |
-| No email notifications | Out of scope |
-| Status not enforced at DB level | SQLModel validation only; CHECK constraint deferred to Week 7 |
-| Company API not load-tested | Rate-limit handling coded but unverified under concurrent load |
-| Alembic migrations not active yet | Development uses automatic table creation until the schema is finalized |
+### 4.1 Local user record shape after first-time OAuth login
+
+`users` row includes:
+
+- `id: int` (PK)
+- `username: str` (non-empty; generated from `login` or fallback)
+- `password_hash: str` (for OAuth-created users, a non-login placeholder hash is
+  allowed)
+- `created_at: datetime`
+
+### 4.2 External identity link shape
+
+`oauth_identity` row includes:
+
+- `id: int` (PK)
+- `user_id: int` (FK -> `users.id`)
+- `provider: str` (e.g., `"github"`)
+- `provider_user_id: str` (normalized external `id`)
+- `provider_login: str | null`
+- `provider_email: str | null`
+- `created_at: datetime`
+- `updated_at: datetime`
+
+Constraints:
+
+- unique(`provider`, `provider_user_id`) to prevent duplicate external identity rows
+- one local user may have multiple identity rows (one per provider or account link)
+
+### 4.3 Create-or-link decision rules
+
+- If (`provider`, `provider_user_id`) exists:
+  - load linked local user and log in (returning OAuth user path).
+- Else if existing local user is authenticated and chooses add-provider flow:
+  - create identity row linked to current local user (link path).
+- Else:
+  - create local user, then create identity row (first-time OAuth user path).
+
+---
+
+## 5. Session and Cookie Contract After Successful OAuth Callback
+
+Session dictionary and login state:
+
+- `session["user_id"]`: local integer user ID (Flask-Login session key behavior)
+- OAuth transient keys (`oauth_state`, temporary redirect target) are removed
+  after callback handling.
+- `session.permanent`: set from remember-me decision.
+
+Cookie expectations:
+
+- session cookie exists after login
+- `SESSION_COOKIE_HTTPONLY = True`
+- `SESSION_COOKIE_SAMESITE = "Lax"`
+- `SESSION_COOKIE_SECURE = True` in production-like config
+- lifetime controlled by `PERMANENT_SESSION_LIFETIME`
+- remember-me uses Flask-Login remember cookie with configured duration
+
+---
+
+## 6. Logout Contract
+
+Route: `GET|POST /logout` (existing route retained)
+
+Local clear behavior:
+
+- `logout_user()` called
+- local session keys removed (`user_id` and transient auth keys)
+- session cookie invalidated/rotated per Flask session behavior
+
+Provider behavior:
+
+- app does **not** log the user out of GitHub
+- no provider-side revoke/logout call is made by default
+
+---
+
+## 7. Security Contract
+
+- CSRF protection is enabled on all state-changing form submissions.
+- Protected routes redirect anonymous users to `/login?next=<path>`.
+- Ownership-restricted resources continue returning 404 for non-owners.
+- Test-only login backdoor route exists only when `app.config["TESTING"]` is
+  true; returns 404 otherwise.
+
+---
+
+## 8. Test Obligations Derived From This Contract
+
+Required contract-enforcement tests:
+
+- Unit/integration:
+  - callback fails when provider `id` missing
+  - callback with partial payload (`email` missing) still succeeds without crash
+  - returning OAuth login reuses existing `oauth_identity` row
+  - logout clears local session state
+- Playwright (browser E2E):
+  - logged-out user cannot access protected page
+  - login via test backdoor reaches authenticated UI state
+  - logout returns user to unauthenticated behavior
+
+Gap disclosure required in walkthrough/docs:
+
+- tests do not drive the real GitHub hosted authorization UI end-to-end
+- tests intentionally mock/stand in for post-redirect flow via test-login path

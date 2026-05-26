@@ -14,8 +14,12 @@ This file is meant to be readable top-to-bottom. No Blueprints, no app factory,
 no advanced Flask patterns. Just enough to teach the architecture.
 """
 
+# MUST come before any os.environ lookups so .env values are visible.
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -26,10 +30,11 @@ from flask import (
     send_from_directory, abort,
 )
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
+from flask_wtf.csrf import CSRFProtect
 from sqlmodel import SQLModel, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import User, JobApplication, JobInsight
+from models import User, JobApplication, JobInsight, OAuthIdentity  # noqa: F401  (OAuthIdentity registered for metadata.create_all)
 from services.company_api import get_cached_insight, refresh_insight
 
 # ---------------------------------------------------------------------------
@@ -38,18 +43,37 @@ from services.company_api import get_cached_insight, refresh_insight
 
 app = Flask(__name__)
 
-# Secret key signs the session cookie so users can't tamper with it.
-# In production this comes from an environment variable and is a long random string.
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-not-for-production")
+
+def _env_bool(key: str, default: bool) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Secrets and DB are strict env lookups: a missing value crashes on startup
+# instead of surfacing as a confusing runtime error later.
+app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE", True)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+    seconds=int(os.environ.get("PERMANENT_SESSION_LIFETIME_SECONDS", "1209600"))
+)
+app.config["REMEMBER_COOKIE_DURATION"] = timedelta(
+    seconds=int(os.environ.get("REMEMBER_COOKIE_DURATION_SECONDS", "1209600"))
+)
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SECURE"] = _env_bool("REMEMBER_COOKIE_SECURE", True)
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+
+csrf = CSRFProtect(app)
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
-
-# Database URL. Postgres runs in a separate container; the URL points there.
-# For local testing without Docker, override with sqlite:
-#   DATABASE_URL=sqlite:///dev.db python app.py
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://app:app@db:5432/app")
 
 # SQLModel uses SQLAlchemy underneath. The engine is the connection pool.
 engine = create_engine(DATABASE_URL, echo=False)
@@ -232,7 +256,8 @@ def register():
     db.commit()
     db.refresh(user)
 
-    login_user(user)
+    login_user(user, remember=False)
+    session.permanent = False
     session["user_id"] = user.id
     return redirect(url_for("home"))
 
@@ -245,6 +270,7 @@ def login():
     # POST: validate credentials.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
+    remember_me = request.form.get("remember_me") == "on"
 
     db = get_db_session()
     user = db.exec(select(User).where(User.username == username)).first()
@@ -253,7 +279,8 @@ def login():
         flash("Invalid username or password.")
         return redirect(url_for("login"))
 
-    login_user(user)
+    login_user(user, remember=remember_me)
+    session.permanent = remember_me
     session["user_id"] = user.id
     return redirect(request.args.get("next") or url_for("home"))
 
@@ -262,8 +289,34 @@ def login():
 @login_required
 def logout():
     logout_user()
-    session.pop("user_id", None)
+    session.clear()
     return redirect(url_for("home"))
+
+
+@app.route("/test/login/<username>")
+def test_login(username):
+    if not app.config.get("TESTING"):
+        abort(404)
+
+    safe_username = username.strip().lower()
+    if not safe_username:
+        abort(404)
+
+    db = get_db_session()
+    user = db.exec(select(User).where(User.username == safe_username)).first()
+    if user is None:
+        user = User(
+            username=safe_username,
+            password_hash=generate_password_hash("test-login-placeholder"),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    login_user(user)
+    session.permanent = False
+    session["user_id"] = user.id
+    return redirect(url_for("applications_list"))
 
 
 @app.route("/about")

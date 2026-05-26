@@ -7,3 +7,8 @@ pytest==7.4.3
 flask-login==0.6.3
 beautifulsoup4==4.12.3
 responses==0.25.0
+Authlib
+Flask-WTF
+python-dotenv
+playwright
+pytest-playwright

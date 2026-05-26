@@ -26,6 +26,9 @@ from app import app, engine
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
+    # CSRF disabled for this fixture so plain POSTs work; dedicated CSRF
+    # rejection assertions live in tests/test_csrf_protection.py.
+    app.config["WTF_CSRF_ENABLED"] = False
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 

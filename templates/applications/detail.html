@@ -83,6 +83,7 @@
               action="/applications/{{ application.id }}/delete"
               onsubmit="return confirm('Delete this application? This cannot be undone.');"
             >
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
             </form>
           </div>
