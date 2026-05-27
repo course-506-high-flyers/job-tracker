@@ -47,3 +47,18 @@ class JobInsight(SQLModel, table=True):
     headquarters: str | None = Field(default=None, sa_column=Column(String(200), nullable=True))
     description: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     fetched_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class OAuthIdentity(SQLModel, table=True):
+    __tablename__ = "oauth_identities"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="uq_oauth_provider_user"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False))
+    provider: str = Field(sa_column=Column(String(40), nullable=False))
+    provider_user_id: str = Field(sa_column=Column(String(120), nullable=False))
+    provider_username: str | None = Field(default=None, sa_column=Column(String(120), nullable=True))
+    provider_email: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))

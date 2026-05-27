@@ -4,6 +4,13 @@
 <div class="row">
     <div class="col-md-5 mx-auto">
         <h1 class="h3 mb-4">Log in</h1>
+
+        <a href="{{ url_for('login_github') }}" class="btn btn-dark w-100 mb-3">
+            Sign in with GitHub
+        </a>
+
+        <div class="text-center text-muted mb-3">or use your password</div>
+
         <form method="POST" action="{{ url_for('login') }}" data-disable-on-submit>
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>

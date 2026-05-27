@@ -15,7 +15,10 @@ no advanced Flask patterns. Just enough to teach the architecture.
 """
 
 import os
-from datetime import date
+from datetime import date, timedelta
+
+from dotenv import load_dotenv
+load_dotenv()
 from functools import lru_cache
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -25,11 +28,12 @@ from flask import (
     Flask, render_template, request, redirect, url_for, flash, g, session,
     send_from_directory, abort,
 )
+from authlib.integrations.flask_client import OAuth
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
 from sqlmodel import SQLModel, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import User, JobApplication, JobInsight
+from models import User, JobApplication, JobInsight, OAuthIdentity
 from services.company_api import get_cached_insight, refresh_insight
 
 # ---------------------------------------------------------------------------
@@ -40,16 +44,31 @@ app = Flask(__name__)
 
 # Secret key signs the session cookie so users can't tamper with it.
 # In production this comes from an environment variable and is a long random string.
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-not-for-production")
+app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False  # True in production HTTPS
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.init_app(app)
 
+oauth = OAuth(app)
+github = oauth.register(
+    name="github",
+    client_id=os.environ["OAUTH_CLIENT_ID"],
+    client_secret=os.environ["OAUTH_CLIENT_SECRET"],
+    access_token_url="https://github.com/login/oauth/access_token",
+    authorize_url="https://github.com/login/oauth/authorize",
+    api_base_url="https://api.github.com/",
+    client_kwargs={"scope": "read:user user:email"},
+)
+
 # Database URL. Postgres runs in a separate container; the URL points there.
 # For local testing without Docker, override with sqlite:
 #   DATABASE_URL=sqlite:///dev.db python app.py
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://app:app@db:5432/app")
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 # SQLModel uses SQLAlchemy underneath. The engine is the connection pool.
 engine = create_engine(DATABASE_URL, echo=False)
@@ -258,11 +277,103 @@ def login():
     return redirect(request.args.get("next") or url_for("home"))
 
 
+@app.route("/login/github")
+def login_github():
+    redirect_uri = url_for("auth_github_callback", _external=True)
+    return github.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/github/callback")
+def auth_github_callback():
+    token = github.authorize_access_token()
+    profile = github.get("user").json()
+
+    provider_user_id = str(profile.get("id") or "")
+    if not provider_user_id:
+        flash("GitHub login failed: missing provider user id.")
+        return redirect(url_for("login"))
+
+    provider_username = (
+        profile.get("login")
+        or profile.get("name")
+        or f"github_user_{provider_user_id}"
+    )
+
+    provider_email = profile.get("email") or f"{provider_username}@users.noreply.github.com"
+
+    db = get_db_session()
+
+    identity = db.exec(
+        select(OAuthIdentity).where(
+            OAuthIdentity.provider == "github",
+            OAuthIdentity.provider_user_id == provider_user_id,
+        )
+    ).first()
+
+    if identity is not None:
+        user = db.get(User, identity.user_id)
+    else:
+        user = db.exec(select(User).where(User.username == provider_username)).first()
+
+        if user is None:
+            user = User(
+                username=provider_username,
+                password_hash=generate_password_hash(os.urandom(32).hex()),
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        identity = OAuthIdentity(
+            user_id=user.id,
+            provider="github",
+            provider_user_id=provider_user_id,
+            provider_username=provider_username,
+            provider_email=provider_email,
+        )
+        db.add(identity)
+        db.commit()
+
+    login_user(user)
+    session["user_id"] = user.id
+    session["oauth_provider"] = "github"
+    session.permanent = True
+
+    return redirect(request.args.get("next") or url_for("home"))
+
+
+@app.route("/test/login/<username>")
+def test_login(username):
+    if not app.config.get("TESTING"):
+        abort(404)
+
+    db = get_db_session()
+    test_username = username.strip() or "testuser"
+
+    user = db.exec(select(User).where(User.username == test_username)).first()
+    if user is None:
+        user = User(
+            username=test_username,
+            password_hash=generate_password_hash(os.urandom(32).hex()),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    login_user(user)
+    session["user_id"] = user.id
+    session["oauth_provider"] = "test"
+    session.permanent = True
+
+    return redirect(url_for("home"))
+
+
 @app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
     session.pop("user_id", None)
+    session.pop("oauth_provider", None)
     return redirect(url_for("home"))
 
 
