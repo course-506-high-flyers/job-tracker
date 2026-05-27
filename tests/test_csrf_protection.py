@@ -45,6 +45,40 @@ def test_login_post_without_csrf_token_is_rejected(csrf_client):
     assert response.status_code == 400
 
 
+def test_applications_new_post_without_csrf_token_is_rejected(csrf_client):
+    # CSRFProtect runs as a before_request hook, so the token check fires
+    # before @login_required redirects. A tokenless POST must be rejected
+    # with 400 regardless of auth state.
+    response = csrf_client.post(
+        "/applications/new",
+        data={
+            "company": "Acme",
+            "position": "SWE",
+            "status": "applied",
+            "applied_date": "2026-05-27",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_applications_edit_post_without_csrf_token_is_rejected(csrf_client):
+    response = csrf_client.post(
+        "/applications/1/edit",
+        data={
+            "company": "Acme",
+            "position": "SWE",
+            "status": "applied",
+            "applied_date": "2026-05-27",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_applications_delete_post_without_csrf_token_is_rejected(csrf_client):
+    response = csrf_client.post("/applications/1/delete", data={})
+    assert response.status_code == 400
+
+
 def test_test_login_backdoor_returns_404_when_testing_disabled(csrf_client):
     # Regression guard: removing the TESTING check in app.test_login would be
     # a critical security regression. Toggle TESTING off and confirm 404.
