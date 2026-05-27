@@ -1,7 +1,6 @@
 """Pytest discovery anchor — also ensures the repo root is on sys.path so
 `from app import app, db` works from the tests/ directory, and seeds the
 strict environment variables that `app.py` requires at import time."""
-
 import os
 import sys
 
@@ -27,9 +26,7 @@ def app():
     # BeautifulSoup/Flask-test-client tests can POST without rendering a token.
     # The dedicated CSRF assertions live in tests/test_csrf_protection.py.
     flask_app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
-
     with flask_app.app_context():
         SQLModel.metadata.drop_all(engine)
         SQLModel.metadata.create_all(engine)
-
     return flask_app

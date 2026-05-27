@@ -1,3 +1,34 @@
+# Darrell Allen - Week 7 Server-Side OAuth Work
+
+## Completed Tasks
+- Added GitHub OAuth authentication using Authlib
+- Added secure environment variable loading with python-dotenv
+- Updated session security configuration
+- Added GitHub OAuth login route (/login/github)
+- Added GitHub OAuth callback route (/auth/github/callback)
+- Added OAuthIdentity SQLModel table for provider identity mapping
+- Added GitHub login button to login template
+- Added test login helper route for Playwright E2E testing
+- Added Playwright end-to-end test for OAuth login workflow
+- Updated pytest fixtures to support live server browser testing
+- Updated requirements.txt with OAuth and Playwright dependencies
+- Updated .env.example with required OAuth environment variables
+
+## Test Results
+- OAuth Playwright E2E test: PASSED
+- Full regression suite: 59/59 PASSED
+
+## Files Modified
+- app.py
+- models.py
+- templates/login.html
+- tests/conftest.py
+- tests/e2e/test_server_oauth_login.py
+- requirements.txt
+- .env.example
+
+---
+
 # role_work.md — Aden (DB-and-security)
 
 ## Files touched
@@ -25,9 +56,7 @@
   `/applications/<id>/edit`, `/applications/<id>/delete`) and that the
   test-login backdoor 404s when `TESTING` is false.
 - `CONTRACTS.md § 1` — added an "Implementation references" table mapping
-  every schema row in the contract to the symbol that implements it
-  (`models.py` model classes, `app.py` `create_all`, schema-conformance test,
-  Alembic deferral). Keeps the contract and the code in lockstep.
+  every schema row in the contract to the symbol that implements it.
 - `tests/e2e/conftest.py` — Playwright live-server fixture (SQLite, TESTING=True).
 - `tests/e2e/test_db_security_flow.py` — required individual Playwright test.
 
@@ -90,3 +119,58 @@ Final test coverage delivered via pull request rather than direct commits to
 - Full suite at submission time: **79 passed, 0 failed, 0 skipped**
   (65 unit/integration + 14 Playwright e2e, including all four Part 3
   full-lifecycle scenarios).
+
+---
+
+# role_work.md — Boma Okoli (Client-side + Coordinator)
+
+## Role: Client-side
+
+## Files touched
+
+- `templates/login.html` — added "Sign in with GitHub" button above the
+  password form; kept password form and Remember me checkbox intact alongside
+  it. GitHub button links to `/login/github`. Added divider between OAuth
+  and password sections.
+- `tests/e2e/test_client_e2e.py` — NEW. Nine Playwright tests covering
+  the client-side OAuth login flow and post-login UI state.
+
+## What my Playwright test verifies
+
+I adapted the Week 6 client-side e2e walkthrough by inserting the test-login
+backdoor at the top. The test suite covers nine user-visible behaviors:
+
+1. The Sign in with GitHub button is visible on the login page
+2. The password form coexists with the GitHub button (both methods present)
+3. The Remember me checkbox is present and unchecked by default
+4. The GitHub button href points to `/login/github`
+5. Anonymous users are redirected from `/applications` to `/login`
+6. After backdoor login, the navbar shows the username and My Applications link
+7. After login, the user can navigate to `/applications` successfully
+8. After logout, the navbar reverts to anonymous state
+9. GitHub button renders above the password form
+
+## Known gaps (honest disclosure)
+
+- The real GitHub redirect is not driven by any automated test.
+- The GitHub button is not clickable end-to-end — requires live credentials.
+- Remember me session lifetime not tested in individual test.
+
+---
+
+## Role: Coordinator (covering for Olga who left in Week 6)
+
+## Coordinator files produced
+
+- `CONTRACTS.md` — updated with OAuth flow sections
+- `coord_session.md` — updated with Week 7 planning transcript
+- `tests/e2e/test_full_lifecycle.py` — team full-lifecycle Playwright suite
+- `team_walkthrough.md` — explains what the suite verifies and its gaps
+
+## What the coordinator Playwright test verifies
+
+`tests/e2e/test_full_lifecycle.py` covers four scenarios:
+1. First-time OAuth login via backdoor — user row created
+2. Returning OAuth login — existing row reused, not duplicated
+3. CSRF protection — tokenless POST rejected with 400
+4. Session lifecycle — protected page inaccessible after logout
