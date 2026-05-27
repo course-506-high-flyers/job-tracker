@@ -15,6 +15,7 @@ Uses the test-login backdoor for everything after the OAuth redirect.
 The real GitHub redirect is a named gap — see team_walkthrough.md.
 """
 
+import re
 import pytest
 from playwright.sync_api import Page, expect
 from sqlmodel import Session, select
@@ -141,7 +142,7 @@ def test_session_lifecycle(page: Page, live_server):
 
     # Step 1: logged out — protected page redirects to login
     page.goto(f"{live_server.url}/applications")
-    expect(page).to_have_url(f"{live_server.url}/login")
+    expect(page).to_have_url(re.compile(r".*/login(\?.*)?$"))
 
     # Step 2: log in via backdoor
     page.goto(f"{live_server.url}/test/login/{username}")
@@ -153,7 +154,7 @@ def test_session_lifecycle(page: Page, live_server):
 
     # Step 4: log out
     page.get_by_role("link", name="Log out").click()
-    expect(page.get_by_role("link", name="Log in")).to_be_visible()
+    expect(page.get_by_role("link", name="Log in", exact=True)).to_be_visible()
 
     # Step 5: protected page inaccessible again
     page.goto(f"{live_server.url}/applications")

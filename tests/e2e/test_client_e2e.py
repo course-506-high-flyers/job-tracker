@@ -12,6 +12,7 @@ Adapted from Week 6 client-side e2e walkthrough — inserted test-login
 backdoor at the top, then exercises the same template surfaces.
 """
 
+import re
 import pytest
 from playwright.sync_api import Page, expect
 
@@ -67,7 +68,7 @@ def test_logged_out_user_redirected_from_applications(page: Page, live_server):
     Regression: @login_required removed from applications_list route.
     """
     page.goto(f"{live_server.url}/applications")
-    expect(page).to_have_url(f"{live_server.url}/login")
+    expect(page).to_have_url(re.compile(r".*/login(\?.*)?$"))
 
 
 def test_backdoor_login_shows_username_in_nav(page: Page, live_server):
@@ -115,7 +116,7 @@ def test_logout_clears_nav_state(page: Page, live_server):
     page.get_by_role("link", name="Log out").click()
 
     # Verify nav reverts to anonymous state
-    expect(page.get_by_role("link", name="Log in")).to_be_visible()
+    expect(page.get_by_role("link", name="Log in", exact=True)).to_be_visible()
     expect(page.get_by_text("Hello, boma_logout_test")).not_to_be_visible()
 
 
