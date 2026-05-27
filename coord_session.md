@@ -183,3 +183,20 @@ in known limitations if not completed before submission]*
 - The difference between testing that the GitHub button exists (easy,
   Playwright can do it) vs testing the actual OAuth flow (impossible
   without real credentials and GitHub's UI).
+
+---
+
+## Post-submission integration log entry
+
+**Issue caught during final audit:**
+`app.py` lines 82-83 originally used `os.environ.get("OAUTH_CLIENT_ID", "")`
+and `os.environ.get("OAUTH_CLIENT_SECRET", "")` — silent fallback rather than
+strict `os.environ[...]`. This violates CONTRACTS.md § 6 which requires strict
+loading so missing secrets crash on startup rather than silently using empty
+strings. Additionally `tests/e2e/conftest.py` did not seed these vars,
+meaning tightening app.py would break the e2e suite.
+
+**Fix applied:** Darrell changed both to strict `os.environ[...]` in app.py.
+Aden seeded `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` in
+`tests/e2e/conftest.py`. This is exactly the contract-drift the coordinator
+role exists to catch and surface to the team before tagging.
