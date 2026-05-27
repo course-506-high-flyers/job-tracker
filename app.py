@@ -79,8 +79,8 @@ login_manager.init_app(app)
 oauth = OAuth(app)
 github = oauth.register(
     name="github",
-    client_id=os.environ.get("OAUTH_CLIENT_ID", ""),
-    client_secret=os.environ.get("OAUTH_CLIENT_SECRET", ""),
+    client_id=os.environ["OAUTH_CLIENT_ID"],
+    client_secret=os.environ["OAUTH_CLIENT_SECRET"],
     access_token_url="https://github.com/login/oauth/access_token",
     authorize_url="https://github.com/login/oauth/authorize",
     api_base_url="https://api.github.com/",

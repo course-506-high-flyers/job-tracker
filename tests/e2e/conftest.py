@@ -21,6 +21,8 @@ def live_server():
 
     os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
     os.environ["SECRET_KEY"] = "e2e-secret-key"
+    os.environ["OAUTH_CLIENT_ID"] = "e2e-oauth-client-id"
+    os.environ["OAUTH_CLIENT_SECRET"] = "e2e-oauth-client-secret"
     os.environ["SESSION_COOKIE_SECURE"] = "false"
     os.environ["REMEMBER_COOKIE_SECURE"] = "false"
     os.environ["PERMANENT_SESSION_LIFETIME_SECONDS"] = "1800"
