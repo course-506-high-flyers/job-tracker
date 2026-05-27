@@ -26,6 +26,7 @@
       {% endwith %}
 
       <form method="POST" action="{{ form_action }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- Company -->
         <div class="mb-3">
@@ -134,7 +135,7 @@
           <button type="submit" class="btn btn-primary">
             {% if application %}Save Changes{% else %}Add Application{% endif %}
           </button>
-          
+          <a
             href="{{ '/applications/' + application.id|string if application else '/applications' }}"
             class="btn btn-outline-secondary"
           >

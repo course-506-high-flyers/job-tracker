@@ -26,6 +26,9 @@ from app import app, engine
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
+    # CSRF disabled for this fixture so plain POSTs work; dedicated CSRF
+    # rejection assertions live in tests/test_csrf_protection.py.
+    app.config["WTF_CSRF_ENABLED"] = False
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
@@ -80,6 +83,43 @@ def test_job_application_schema_matches_contract():
         "fetched_at",
     }
     assert expected_insight_columns.issubset(insights.columns.keys())
+
+
+def test_oauth_identity_schema_matches_contract():
+    """Aden owns the OAuth identity table linking external providers to users.
+
+    Locks in the Week 7 `oauth_identity` schema promised in CONTRACTS.md § 1:
+    column set, UNIQUE (provider, provider_user_id), and FK cascade on user_id.
+    """
+    tables = SQLModel.metadata.tables
+
+    assert "oauth_identity" in tables
+
+    identity = tables["oauth_identity"]
+    expected_columns = {
+        "id",
+        "user_id",
+        "provider",
+        "provider_user_id",
+        "provider_login",
+        "provider_email",
+        "created_at",
+        "updated_at",
+    }
+    assert expected_columns.issubset(identity.columns.keys())
+
+    foreign_keys = {
+        (fk.parent.name, fk.column.table.name, fk.column.name, fk.ondelete)
+        for fk in identity.foreign_keys
+    }
+    assert ("user_id", "users", "id", "CASCADE") in foreign_keys
+
+    unique_column_sets = {
+        tuple(column.name for column in constraint.columns)
+        for constraint in identity.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert ("provider", "provider_user_id") in unique_column_sets
 
 
 @pytest.mark.parametrize(

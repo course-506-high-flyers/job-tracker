@@ -50,15 +50,16 @@ class JobInsight(SQLModel, table=True):
 
 
 class OAuthIdentity(SQLModel, table=True):
-    __tablename__ = "oauth_identities"
+    __tablename__ = "oauth_identity"
     __table_args__ = (
-        UniqueConstraint("provider", "provider_user_id", name="uq_oauth_provider_user"),
+        UniqueConstraint("provider", "provider_user_id", name="uq_oauth_identity_provider_user_id"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(sa_column=Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False))
-    provider: str = Field(sa_column=Column(String(40), nullable=False))
-    provider_user_id: str = Field(sa_column=Column(String(120), nullable=False))
-    provider_username: str | None = Field(default=None, sa_column=Column(String(120), nullable=True))
+    provider: str = Field(sa_column=Column(String(50), nullable=False))
+    provider_user_id: str = Field(sa_column=Column(String(255), nullable=False))
+    provider_login: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     provider_email: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))

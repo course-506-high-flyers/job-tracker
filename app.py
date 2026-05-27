@@ -14,11 +14,12 @@ This file is meant to be readable top-to-bottom. No Blueprints, no app factory,
 no advanced Flask patterns. Just enough to teach the architecture.
 """
 
-import os
-from datetime import date, timedelta
-
+# MUST come before any os.environ lookups so .env values are visible.
 from dotenv import load_dotenv
 load_dotenv()
+
+import os
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -30,10 +31,11 @@ from flask import (
 )
 from authlib.integrations.flask_client import OAuth
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
+from flask_wtf.csrf import CSRFProtect
 from sqlmodel import SQLModel, Session, create_engine, select
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import User, JobApplication, JobInsight, OAuthIdentity
+from models import User, JobApplication, JobInsight, OAuthIdentity  # noqa: F401
 from services.company_api import get_cached_insight, refresh_insight
 
 # ---------------------------------------------------------------------------
@@ -42,13 +44,33 @@ from services.company_api import get_cached_insight, refresh_insight
 
 app = Flask(__name__)
 
-# Secret key signs the session cookie so users can't tamper with it.
-# In production this comes from an environment variable and is a long random string.
+
+def _env_bool(key: str, default: bool) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Secrets and DB are strict env lookups: a missing value crashes on startup
+# instead of surfacing as a confusing runtime error later.
 app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
+DATABASE_URL = os.environ["DATABASE_URL"]
+
+app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE", True)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = False  # True in production HTTPS
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=2)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+    seconds=int(os.environ.get("PERMANENT_SESSION_LIFETIME_SECONDS", "1209600"))
+)
+app.config["REMEMBER_COOKIE_DURATION"] = timedelta(
+    seconds=int(os.environ.get("REMEMBER_COOKIE_DURATION_SECONDS", "1209600"))
+)
+app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+app.config["REMEMBER_COOKIE_SECURE"] = _env_bool("REMEMBER_COOKIE_SECURE", True)
+app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+
+csrf = CSRFProtect(app)
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -57,18 +79,13 @@ login_manager.init_app(app)
 oauth = OAuth(app)
 github = oauth.register(
     name="github",
-    client_id=os.environ["OAUTH_CLIENT_ID"],
-    client_secret=os.environ["OAUTH_CLIENT_SECRET"],
+    client_id=os.environ.get("OAUTH_CLIENT_ID", ""),
+    client_secret=os.environ.get("OAUTH_CLIENT_SECRET", ""),
     access_token_url="https://github.com/login/oauth/access_token",
     authorize_url="https://github.com/login/oauth/authorize",
     api_base_url="https://api.github.com/",
     client_kwargs={"scope": "read:user user:email"},
 )
-
-# Database URL. Postgres runs in a separate container; the URL points there.
-# For local testing without Docker, override with sqlite:
-#   DATABASE_URL=sqlite:///dev.db python app.py
-DATABASE_URL = os.environ["DATABASE_URL"]
 
 # SQLModel uses SQLAlchemy underneath. The engine is the connection pool.
 engine = create_engine(DATABASE_URL, echo=False)
@@ -84,10 +101,6 @@ S3_SITE_URLS = (
 
 # ---------------------------------------------------------------------------
 # Session helper
-#
-# SQLModel doesn't have a Flask extension. We open a fresh DB session for each
-# request and close it when the request finishes. Flask's `g` object holds
-# request-scoped state.
 # ---------------------------------------------------------------------------
 
 def get_db_session():
@@ -114,9 +127,6 @@ def load_user(user_id: str):
     return db.get(User, user_pk)
 
 
-# Make `user` available in every Flask-rendered template (login page, register
-# page, about page, placeholder). Static files served from S3_content/ don't
-# go through templates, so this only affects Jinja2-rendered pages.
 @app.context_processor
 def inject_user():
     user = current_user if current_user.is_authenticated else None
@@ -177,9 +187,9 @@ def validate_application_form(form):
 @lru_cache(maxsize=1)
 def get_team_s3_site_url():
     for url in S3_SITE_URLS:
-        request = Request(url, headers={"User-Agent": "job-tracker-health-check"})
+        req = Request(url, headers={"User-Agent": "job-tracker-health-check"})
         try:
-            with urlopen(request, timeout=2) as response:
+            with urlopen(req, timeout=2) as response:
                 if 200 <= response.status < 400:
                     return url
         except (HTTPError, URLError, TimeoutError):
@@ -188,14 +198,7 @@ def get_team_s3_site_url():
     return S3_SITE_URLS[0]
 
 # ---------------------------------------------------------------------------
-# Routes — your S3 static site
-#
-# Your S3 site lives at /site/. Populate the S3_content/ folder by running:
-#   aws s3 sync s3://<your-bucket>/ S3_content/
-# from the repo root. Then click "My Site" in the navbar.
-#
-# The home page is Flask-rendered and acts as the entry point: it has the
-# navbar (Login/Register/About/My Site) and a brief landing message.
+# Routes — S3 static site
 # ---------------------------------------------------------------------------
 
 @app.route("/")
@@ -207,7 +210,6 @@ def home():
 def site_home():
     index_path = S3_CONTENT_DIR / "index.html"
     if not index_path.exists():
-        # Friendly placeholder when the student hasn't synced yet.
         return render_template("placeholder.html"), 200
     return send_from_directory(S3_CONTENT_DIR, "index.html")
 
@@ -221,7 +223,7 @@ def serve_s3_content(filename):
 
 
 # ---------------------------------------------------------------------------
-# Routes — authentication (Flask-rendered, not static)
+# Routes — authentication
 # ---------------------------------------------------------------------------
 
 @app.route("/register", methods=["GET", "POST"])
@@ -229,7 +231,6 @@ def register():
     if request.method == "GET":
         return render_template("register.html")
 
-    # POST: create a new user.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
 
@@ -251,7 +252,8 @@ def register():
     db.commit()
     db.refresh(user)
 
-    login_user(user)
+    login_user(user, remember=False)
+    session.permanent = False
     session["user_id"] = user.id
     return redirect(url_for("home"))
 
@@ -261,9 +263,9 @@ def login():
     if request.method == "GET":
         return render_template("login.html")
 
-    # POST: validate credentials.
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
+    remember_me = request.form.get("remember_me") == "on"
 
     db = get_db_session()
     user = db.exec(select(User).where(User.username == username)).first()
@@ -272,7 +274,8 @@ def login():
         flash("Invalid username or password.")
         return redirect(url_for("login"))
 
-    login_user(user)
+    login_user(user, remember=remember_me)
+    session.permanent = remember_me
     session["user_id"] = user.id
     return redirect(request.args.get("next") or url_for("home"))
 
@@ -293,13 +296,12 @@ def auth_github_callback():
         flash("GitHub login failed: missing provider user id.")
         return redirect(url_for("login"))
 
-    provider_username = (
+    provider_login = (
         profile.get("login")
         or profile.get("name")
-        or f"github_user_{provider_user_id}"
+        or f"github_{provider_user_id}"
     )
-
-    provider_email = profile.get("email") or f"{provider_username}@users.noreply.github.com"
+    provider_email = profile.get("email")
 
     db = get_db_session()
 
@@ -313,11 +315,11 @@ def auth_github_callback():
     if identity is not None:
         user = db.get(User, identity.user_id)
     else:
-        user = db.exec(select(User).where(User.username == provider_username)).first()
+        user = db.exec(select(User).where(User.username == provider_login)).first()
 
         if user is None:
             user = User(
-                username=provider_username,
+                username=provider_login,
                 password_hash=generate_password_hash(os.urandom(32).hex()),
             )
             db.add(user)
@@ -328,7 +330,7 @@ def auth_github_callback():
             user_id=user.id,
             provider="github",
             provider_user_id=provider_user_id,
-            provider_username=provider_username,
+            provider_login=provider_login,
             provider_email=provider_email,
         )
         db.add(identity)
@@ -336,10 +338,17 @@ def auth_github_callback():
 
     login_user(user)
     session["user_id"] = user.id
-    session["oauth_provider"] = "github"
     session.permanent = True
 
-    return redirect(request.args.get("next") or url_for("home"))
+    return redirect(url_for("applications_list"))
+
+
+@app.route("/logout", methods=["GET", "POST"])
+@login_required
+def logout():
+    logout_user()
+    session.clear()
+    return redirect(url_for("home"))
 
 
 @app.route("/test/login/<username>")
@@ -347,40 +356,29 @@ def test_login(username):
     if not app.config.get("TESTING"):
         abort(404)
 
-    db = get_db_session()
-    test_username = username.strip() or "testuser"
+    safe_username = username.strip().lower()
+    if not safe_username:
+        abort(404)
 
-    user = db.exec(select(User).where(User.username == test_username)).first()
+    db = get_db_session()
+    user = db.exec(select(User).where(User.username == safe_username)).first()
     if user is None:
         user = User(
-            username=test_username,
-            password_hash=generate_password_hash(os.urandom(32).hex()),
+            username=safe_username,
+            password_hash=generate_password_hash("test-login-placeholder"),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
     login_user(user)
+    session.permanent = False
     session["user_id"] = user.id
-    session["oauth_provider"] = "test"
-    session.permanent = True
-
-    return redirect(url_for("home"))
-
-
-@app.route("/logout", methods=["GET", "POST"])
-@login_required
-def logout():
-    logout_user()
-    session.pop("user_id", None)
-    session.pop("oauth_provider", None)
-    return redirect(url_for("home"))
+    return redirect(url_for("applications_list"))
 
 
 @app.route("/about")
 def about():
-    # Each team replaces this content with their own About page (see
-    # the assignment instructions in README.md).
     return render_template("about.html", team_s3_site_url=get_team_s3_site_url())
 
 
@@ -390,7 +388,7 @@ def applications_list():
     db = get_db_session()
     status_filter = request.args.get("status")
 
-    query = select(JobApplication).where(JobApplication.user_id == current_user.id)
+    query = select(JobApplication).where(JobApplication.user_iurrent_user.id)
 
     if status_filter in STATUS_CHOICES:
         query = query.where(JobApplication.status == status_filter)
@@ -460,6 +458,7 @@ def applications_new():
     flash("Application saved.", "success")
     return redirect(f"/applications/{application.id}")
 
+
 @app.route("/applications/<int:app_id>")
 @login_required
 def applications_detail(app_id):
@@ -473,6 +472,7 @@ def applications_detail(app_id):
         application=application,
         insight=insight,
     )
+
 
 @app.route("/applications/<int:app_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -559,13 +559,11 @@ def applications_insight(app_id):
 
     return redirect(f"/applications/{application.id}")
 
+
 # ---------------------------------------------------------------------------
 # First-run schema creation
 # ---------------------------------------------------------------------------
 
-# DEVELOPMENT ONLY: this creates missing tables automatically for the current
-# classroom skeleton. Once the schema is finalized, replace this with Alembic
-# migrations and make `alembic upgrade head` the official database update path.
 SQLModel.metadata.create_all(engine)
 
 
