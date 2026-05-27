@@ -16,9 +16,18 @@
 - `tests/conftest.py` — seeds strict env vars before app import, disables CSRF
   for unit-test client fixture.
 - `tests/test_auth.py`, `tests/test_db_security_contract.py` — CSRF disabled in
-  their fixtures so prior assertions continue to hold.
+  their fixtures so prior assertions continue to hold. `test_db_security_contract.py`
+  also gained `test_oauth_identity_schema_matches_contract`, which asserts the
+  Week 7 table I own (column set, `UNIQUE(provider, provider_user_id)`, and
+  FK cascade `user_id → users.id`).
 - `tests/test_csrf_protection.py` — NEW. Asserts CSRF rejects tokenless POSTs
-  and that the test-login backdoor 404s when `TESTING` is false.
+  on every state-changing form (`/login`, `/register`, `/applications/new`,
+  `/applications/<id>/edit`, `/applications/<id>/delete`) and that the
+  test-login backdoor 404s when `TESTING` is false.
+- `CONTRACTS.md § 1` — added an "Implementation references" table mapping
+  every schema row in the contract to the symbol that implements it
+  (`models.py` model classes, `app.py` `create_all`, schema-conformance test,
+  Alembic deferral). Keeps the contract and the code in lockstep.
 - `tests/e2e/conftest.py` — Playwright live-server fixture (SQLite, TESTING=True).
 - `tests/e2e/test_db_security_flow.py` — required individual Playwright test.
 
