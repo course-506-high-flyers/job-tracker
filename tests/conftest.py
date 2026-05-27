@@ -14,6 +14,11 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("SESSION_COOKIE_SECURE", "false")
 os.environ.setdefault("REMEMBER_COOKIE_SECURE", "false")
 
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("DATABASE_URL", "sqlite:///test.db")
+os.environ.setdefault("OAUTH_CLIENT_ID", "test-oauth-client-id")
+os.environ.setdefault("OAUTH_CLIENT_SECRET", "test-oauth-client-secret")
+
 import pytest
 from sqlmodel import SQLModel
 
