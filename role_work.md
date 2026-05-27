@@ -47,9 +47,16 @@
 - `tests/conftest.py` — seeds strict env vars before app import, disables CSRF
   for unit-test client fixture.
 - `tests/test_auth.py`, `tests/test_db_security_contract.py` — CSRF disabled in
-  their fixtures so prior assertions continue to hold.
+  their fixtures so prior assertions continue to hold. `test_db_security_contract.py`
+  also gained `test_oauth_identity_schema_matches_contract`, which asserts the
+  Week 7 table I own (column set, `UNIQUE(provider, provider_user_id)`, and
+  FK cascade `user_id → users.id`).
 - `tests/test_csrf_protection.py` — NEW. Asserts CSRF rejects tokenless POSTs
-  and that the test-login backdoor 404s when `TESTING` is false.
+  on every state-changing form (`/login`, `/register`, `/applications/new`,
+  `/applications/<id>/edit`, `/applications/<id>/delete`) and that the
+  test-login backdoor 404s when `TESTING` is false.
+- `CONTRACTS.md § 1` — added an "Implementation references" table mapping
+  every schema row in the contract to the symbol that implements it.
 - `tests/e2e/conftest.py` — Playwright live-server fixture (SQLite, TESTING=True).
 - `tests/e2e/test_db_security_flow.py` — required individual Playwright test.
 
@@ -96,9 +103,26 @@ documented future work; the contract calls this out explicitly.
   The test-login backdoor stands in for everything after the redirect lands
   at our callback. This is the same disclosure the assignment asks for.
 
+## Submission
+
+Final test coverage delivered via pull request rather than direct commits to
+`main`, so the additions get a normal review trail:
+
+- Branch: `aden/week7-db-security-test-hardening`
+- PR: #8 — *test(db-security): assert oauth_identity schema and CSRF on
+  application forms*
+- Commits in the PR:
+  - `4943762` — adds the two new test functions
+    (`test_oauth_identity_schema_matches_contract`,
+    `test_applications_{new,edit,delete}_post_without_csrf_token_is_rejected`)
+  - `9d600cd` — this `role_work.md` update describing the new coverage
+- Full suite at submission time: **79 passed, 0 failed, 0 skipped**
+  (65 unit/integration + 14 Playwright e2e, including all four Part 3
+  full-lifecycle scenarios).
+
 ---
 
-# role_work_boma.md — Boma Okoli (Client-side + Coordinator)
+# role_work.md — Boma Okoli (Client-side + Coordinator)
 
 ## Role: Client-side
 
