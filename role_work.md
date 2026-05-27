@@ -73,3 +73,20 @@ documented future work; the contract calls this out explicitly.
 - **The real GitHub authorization UI is not driven by any automated test.**
   The test-login backdoor stands in for everything after the redirect lands
   at our callback. This is the same disclosure the assignment asks for.
+
+## Submission
+
+Final test coverage delivered via pull request rather than direct commits to
+`main`, so the additions get a normal review trail:
+
+- Branch: `aden/week7-db-security-test-hardening`
+- PR: #8 — *test(db-security): assert oauth_identity schema and CSRF on
+  application forms*
+- Commits in the PR:
+  - `4943762` — adds the two new test functions
+    (`test_oauth_identity_schema_matches_contract`,
+    `test_applications_{new,edit,delete}_post_without_csrf_token_is_rejected`)
+  - `9d600cd` — this `role_work.md` update describing the new coverage
+- Full suite at submission time: **79 passed, 0 failed, 0 skipped**
+  (65 unit/integration + 14 Playwright e2e, including all four Part 3
+  full-lifecycle scenarios).
