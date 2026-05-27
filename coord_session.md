@@ -1,103 +1,185 @@
-# Coordinator LLM Session Notes (Week 7 OAuth Revision)
+# Coordinator LLM Session Transcript — Week 7
 **Project:** Job Application Tracker  
 **Team:** High Flyers  
 **Coordinator:** Boma Okoli  
-**Date:** May 26, 2026  
-**LLM Used:** Claude
+**Date:** May 27, 2026  
+**Tool used:** Claude (Anthropic)
 
 ---
 
 ## Purpose
 
-Revise `CONTRACTS.md` for Week 7 OAuth integration and agree on how contract
-items map to implementation and tests across roles.
+This transcript documents the Week 7 planning session used to revise
+CONTRACTS.md for OAuth, design the Playwright test suite, and surface
+cross-role implications before implementation began.
 
 ---
 
-## Session Summary (Honest Transcript-Style)
+## Session Summary
 
-**Boma (Coordinator):** We need to revise the contract for GitHub OAuth and
-be explicit about what we can and cannot promise. Which parts are ours and
-which parts are external?
+### Opening — OAuth scope and stack confirmation
 
-**Claude:** You can contract your app's route behavior and local data handling,
-but not GitHub's runtime behavior. Add `external_dependency: github.com` and
-state that provider payload examples are representative only.
+**Boma:** We need to add GitHub OAuth to our Job Application Tracker.
+Our stack is Flask, SQLModel, Postgres, Bootstrap, Flask-Login.
+Aden already added the `oauth_identity` table and CSRF protection.
+Darrell is implementing the OAuth routes. I'm doing client-side
+(GitHub button on login page) and coordinator work.
 
-**Decision:** Added explicit dependency boundary section to contract.
+**Claude:** Before writing the contract, three design decisions need
+to be made upfront. First: when a user logs in with GitHub for the
+first time, do you create a new local user or require them to link
+to an existing password account?
 
----
+**Boma:** Create a new local user automatically. We don't want to
+force people to create a password account first.
 
-**Aden (DB/Security):** For the callback, what provider fields are mandatory?
-I need deterministic rules so we can test partial payloads and avoid crashes.
+**Claude:** Good. Second decision: what username do you assign the
+new user if GitHub doesn't return a login field?
 
-**Claude:** Require provider `id`; treat `login`, `email`, and `name` as
-optional. Missing `id` means fail login. Missing optional fields should use
-fallback defaults or null storage, never 500.
+**Boma:** Fall back to `github_<provider_user_id>`. That way we
+always have a unique username even if the payload is partial.
 
-**Decision:** Contract now defines required vs optional provider fields and
-fallback behavior.
-
----
-
-**Darrell (Server-side):** We need a clear create-or-link algorithm. Otherwise
-we may create duplicate local users or duplicate identity rows.
-
-**Claude:** Decision tree should be:
-1) if (`provider`, `provider_user_id`) exists, reuse linked local user;
-2) if authenticated local user is linking account, attach new identity row;
-3) else create local user and identity row.
-Also require unique(`provider`, `provider_user_id`).
-
-**Decision:** Added identity schema shape and unique constraints to contract.
+*[Decision recorded: username fallback = `f"github_{provider_user_id}"`]*
 
 ---
 
-**Aden (DB/Security):** Session contract has to be concrete for hardening.
-What exactly should exist after callback?
+### OAuth callback failure modes
 
-**Claude:** State local login/session keys exist, transient OAuth keys are
-removed, cookie flags are set (`HttpOnly`, `SameSite=Lax`, `Secure` in
-production-like config), and lifetime is controlled by permanent session
-settings/remember cookie.
+**Claude:** What does your app do if the GitHub callback returns an
+error — for example, the user clicks "Deny" on the GitHub auth page?
 
-**Decision:** Added post-callback session/cookie contract section.
+**Boma:** Flash a warning and redirect back to the login page. Don't
+crash.
 
----
+**Claude:** And if the email field is missing — GitHub lets users
+hide their email — do you require it?
 
-**Boma (Coordinator):** For logout, should we also log users out of GitHub?
+**Boma:** No. Store None in `provider_email`. The app doesn't need
+email to function.
 
-**Claude:** No provider logout is required for this assignment. Contract should
-say local logout clears app session only; provider session remains outside app
-control.
+**Claude:** That's the right call. Email as optional enrichment, not
+a required field. I'd recommend noting this explicitly in the contract
+so Darrell knows not to crash on a null email.
 
-**Decision:** Added explicit local-vs-provider logout behavior.
-
----
-
-**Cross-role test implications discussion**
-
-**Boma:** How do we avoid truthy-fixture tests here?
-
-**Claude:** Use Playwright for browser behavior and a test-login backdoor for
-post-redirect authentication state. Document gap honestly: real hosted GitHub
-authorization UI is not covered by automated tests in this assignment setup.
-
-**Aden:** For my role test, I will verify protected page access is blocked when
-logged out, allowed after test login, and blocked again after logout using DOM
-assertions.
-
-**Darrell:** I will cover callback error handling and identity reuse in server
-tests.
-
-**Decision:** Contract includes explicit test obligations and gap disclosure.
+*[Decision recorded: `provider_email` nullable, null = store None]*
 
 ---
 
-## Why this reflects real coordination (not just a to-do split)
+### Logout behavior — pushback on clearing GitHub session
 
-- We resolved behavior ambiguities (`id` required vs optional fields fallback).
-- We settled data ownership and duplication risks (identity linking rules).
-- We aligned security config with route/session behavior to avoid role conflicts.
-- We agreed on what automated tests can honestly claim and what must be a
-  documented gap.
+**Claude:** For logout, should you also clear the GitHub session so
+the user is fully signed out of GitHub?
+
+**Boma:** Can we do that?
+
+**Claude:** Not easily — and you shouldn't. Clearing the GitHub
+session would log the user out of all GitHub tabs and apps, which
+is not what they expect when they click "Log out" of your app.
+Standard OAuth behavior is to clear your local session only. The
+user stays logged into GitHub. This should be documented in the
+contract so it's not treated as a bug.
+
+**Boma:** Makes sense. Add it to the known limitations.
+
+*[Decision recorded: logout clears local session only, not GitHub
+session — documented in Authorization Rules section]*
+
+---
+
+### Playwright test design — backdoor rationale
+
+**Boma:** The assignment says we need Playwright tests but we can't
+actually drive the real GitHub login UI. How does the backdoor work?
+
+**Claude:** The test-login backdoor is a Flask route — `/test/login/<username>`
+— that's only available when `app.config["TESTING"]` is True. Your
+Playwright test navigates to that URL instead of clicking the real
+GitHub button. It bypasses the OAuth redirect entirely. The gap is
+named explicitly: we don't test the real GitHub redirect, and we
+document that in `team_walkthrough.md`.
+
+**Boma:** So the GitHub button on the login page — how do we test
+that it exists and points to the right route?
+
+**Claude:** That's actually testable — Playwright can navigate to
+`/login`, find the button by its text, and assert its `href` contains
+`/login/github`. What it can't do is click that link and complete
+the GitHub flow. Those are two different assertions.
+
+*[Decision recorded: client-side test asserts button exists + href,
+does not click through to GitHub]*
+
+---
+
+### Cross-role implications surfaced
+
+**Boma:** Aden's `role_work.md` says `OAuthIdentity` is defined but
+not yet wired into a route. Does that affect the Playwright tests?
+
+**Claude:** Yes — the full-lifecycle test (Test 1) tries to assert
+that an `oauth_identity` row was created after first login. But the
+backdoor route creates a `User` row only, not an `OAuthIdentity` row.
+If Darrell's OAuth callback isn't implemented yet, that DB assertion
+will fail.
+
+**Boma:** So the full-lifecycle test depends on Darrell's work?
+
+**Claude:** Test 1 and Test 2 do, yes. Tests 3 and 4 (CSRF and
+session lifecycle) are independent of the OAuth routes and should
+pass as soon as Aden's CSRF work is merged. This is worth noting
+in `team_walkthrough.md` so the grader understands the dependency.
+
+*[Decision recorded: Tests 1 and 2 depend on Darrell's callback
+implementation; Tests 3 and 4 are independent]*
+
+---
+
+### Secrets management
+
+**Boma:** Do we need to create a GitHub OAuth app for this?
+
+**Claude:** Yes — someone on the team needs to create a GitHub OAuth
+app in the team's GitHub org. The callback URL should be
+`http://<ec2-public-ip>:5000/auth/github/callback`. The client ID
+and secret go in `.env` (gitignored) and `.env.example` documents
+the variable names with placeholders. The coordinator typically
+handles this setup.
+
+**Boma:** What if we don't have the credentials yet when we submit?
+
+**Claude:** Document it honestly in the contract and in
+`team_walkthrough.md`. The grader expects you to note what's
+pending. Missing credentials don't invalidate the contract or
+the tests — they just mean the real OAuth flow can't be manually
+verified yet.
+
+*[Decision recorded: GitHub OAuth app setup documented as pending
+in known limitations if not completed before submission]*
+
+---
+
+## Key Decisions Summary
+
+| Decision | Rationale |
+|---|---|
+| Auto-create user on first OAuth login | No forced account linking — simpler UX |
+| Username fallback = `github_<id>` | Always unique even with partial payload |
+| `provider_email` nullable | GitHub allows private email — don't crash |
+| Logout clears local session only | Standard OAuth behavior — not a bug |
+| Playwright uses backdoor, not real GitHub | External dependency — named gap |
+| Client-side test asserts button + href only | Can't drive real GitHub UI |
+| Tests 1+2 depend on Darrell's callback | Cross-role dependency surfaced early |
+
+---
+
+## What this session surfaced that I didn't know going in
+
+- The logout behavior — I assumed we should clear the GitHub session
+  too, but that would log the user out of all GitHub tabs. Standard
+  OAuth only clears local state.
+- The cross-role dependency between the full-lifecycle Playwright test
+  and Darrell's OAuth callback implementation. Tests 1 and 2 can't
+  pass until the callback route exists.
+- The difference between testing that the GitHub button exists (easy,
+  Playwright can do it) vs testing the actual OAuth flow (impossible
+  without real credentials and GitHub's UI).
