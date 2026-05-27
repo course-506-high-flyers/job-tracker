@@ -388,7 +388,7 @@ def applications_list():
     db = get_db_session()
     status_filter = request.args.get("status")
 
-    query = select(JobApplication).where(JobApplication.user_iurrent_user.id)
+    query = select(JobApplication).where(JobApplication.user_id == current_user.id)
 
     if status_filter in STATUS_CHOICES:
         query = query.where(JobApplication.status == status_filter)
