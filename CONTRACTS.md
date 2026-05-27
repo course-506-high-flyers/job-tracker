@@ -3,175 +3,235 @@
 **Team:** High Flyers  
 **Coordinator:** Boma Okoli  
 **Project:** Job Application Tracker  
-**Week:** 7 (OAuth + Playwright revision)
+**Week:** 7 (updated from Week 6)  
 
-This document is the authoritative spec for Week 7 behavior. Implementation
-and tests must match this contract.
-
----
-
-## 1. OAuth Dependency Boundary
-
-- `external_dependency: github.com`
-- This contract specifies what **our code** does with provider responses.
-- This contract does **not** specify GitHub's exact behavior or payload
-  guarantees.
-- Representative payload shape may be used in tests/docs, but tests must not
-  claim GitHub is contractually required to return that exact shape.
+This document is the authoritative spec. All role implementations follow it.
+Week 7 additions are marked with `[Week 7]`.
 
 ---
 
-## 2. OAuth Routes Contract
+## 1. Schema
 
-### 2.1 `GET /login/github`
+### Existing tables (Week 6 — no changes)
 
-- **Auth requirement:** anonymous or authenticated users may hit route.
-- **Input:** query string optional `next` (string path, default `/`).
+| Table | Column | Type | Constraints |
+|-------|--------|------|-------------|
+| `users` | `id` | INTEGER | PK, autoincrement |
+| `users` | `username` | VARCHAR(80) | NOT NULL, UNIQUE |
+| `users` | `password_hash` | VARCHAR(256) | NOT NULL |
+| `users` | `created_at` | DATETIME | NOT NULL, default=now |
+
+### `job_applications` (Week 6)
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `id` | INTEGER | PK, autoincrement |
+| `user_id` | INTEGER | NOT NULL, FK → `users.id` ON DELETE CASCADE |
+| `company` | VARCHAR(120) | NOT NULL |
+| `position` | VARCHAR(120) | NOT NULL |
+| `status` | VARCHAR(30) | NOT NULL, DEFAULT `'applied'` |
+| `applied_date` | DATE | NOT NULL |
+| `notes` | TEXT | NULLABLE |
+| `job_url` | VARCHAR(500) | NULLABLE |
+| `created_at` | DATETIME | NOT NULL, default=now |
+| `updated_at` | DATETIME | NOT NULL, default=now |
+
+### `job_insights` (Week 6)
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `id` | INTEGER | PK, autoincrement |
+| `company` | VARCHAR(120) | NOT NULL, UNIQUE |
+| `rating` | FLOAT | NULLABLE |
+| `review_count` | INTEGER | NULLABLE |
+| `industry` | VARCHAR(120) | NULLABLE |
+| `headquarters` | VARCHAR(200) | NULLABLE |
+| `description` | TEXT | NULLABLE |
+| `fetched_at` | DATETIME | NOT NULL, default=now |
+
+### `oauth_identity` [Week 7]
+
+Links external provider identities to local users.
+One user may have multiple OAuth identities (one per provider).
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| `id` | INTEGER | PK, autoincrement | |
+| `user_id` | INTEGER | NOT NULL, FK → `users.id` ON DELETE CASCADE | |
+| `provider` | VARCHAR(50) | NOT NULL | e.g. `"github"` |
+| `provider_user_id` | VARCHAR(255) | NOT NULL | GitHub numeric user ID |
+| `provider_login` | VARCHAR(255) | NULLABLE | GitHub username/login |
+| `provider_email` | VARCHAR(255) | NULLABLE | May be null if GitHub email is private |
+| `created_at` | DATETIME | NOT NULL, default=now | |
+| `updated_at` | DATETIME | NOT NULL, default=now | |
+
+**Constraints:**
+- UNIQUE on (`provider`, `provider_user_id`) — one identity per provider per user
+
+---
+
+## 2. Endpoint Contracts
+
+### 2.1 Existing auth routes (Week 6)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/login` | None | Login form — now includes GitHub button [Week 7] |
+| POST | `/login` | None | Password authentication |
+| GET | `/register` | None | Registration form |
+| POST | `/register` | None | Create user |
+| GET/POST | `/logout` | Required | Clear session, redirect to home |
+
+### 2.2 OAuth routes [Week 7]
+
+#### `GET /login/github`
+- **Auth:** None
+- **Description:** Initiates GitHub OAuth flow via Authlib
+- **Behavior:** Calls `oauth.github.authorize_redirect(callback_url)`
+- **Response:** 302 redirect to GitHub authorization page
+- **Error:** If `OAUTH_CLIENT_ID` is missing → 500 on startup (strict env load)
+
+#### `GET /auth/github/callback`
+- **Auth:** None (GitHub redirects here after user authorizes)
+- **Description:** Handles OAuth callback, creates or links user
+- **Query params:** `code` (from GitHub), `state` (CSRF token from Authlib)
 - **Behavior:**
-  - stores OAuth state token and post-login redirect target in session
-  - initiates provider authorization redirect
-- **Output on success:** HTTP 302 redirect to provider authorization URL.
-- **Output on failure:** flash auth error and redirect to `/login`.
+  1. Exchange `code` for access token via Authlib
+  2. Fetch user info from `https://api.github.com/user`
+  3. Look up `oauth_identity` by (`provider=github`, `provider_user_id`)
+  4. If found → load linked `User`, call `login_user()`
+  5. If not found → create `User` (username from login, fallback to id),
+     create `OAuthIdentity`, call `login_user()`
+- **Success:** Redirect to `/applications`
+- **Error cases:**
+  - GitHub returns error param → flash warning, redirect to `/login`
+  - Token exchange fails → flash warning, redirect to `/login`
+  - Missing `login` field in payload → use `f"github_{provider_user_id}"` as username
+  - Missing `email` field → store `None` in `provider_email` (do not crash)
 
-### 2.2 `GET /auth/github/callback`
+### 2.3 Test backdoor route [Week 7]
 
-- **Auth requirement:** none (provider redirects here).
-- **Input:** provider callback query params (`code`, `state`, possible `error`).
-- **Precondition:** `state` must match server-side session state.
-- **Behavior:**
-  - exchanges `code` for token
-  - requests provider user info
-  - validates required fields (see Section 3)
-  - executes create-or-link logic (see Section 4)
-  - logs local user in
-- **Output on success:** HTTP 302 redirect to stored `next` or `/dashboard`.
-- **Output on failure:** clear transient OAuth session keys, flash error,
-  redirect to `/login`.
+#### `GET /test/login/<username>`
+- **Auth:** None
+- **Availability:** Only when `app.config["TESTING"] is True` — returns 404 otherwise
+- **Description:** Creates user if not exists, logs them in, redirects to `/applications`
+- **Purpose:** Allows Playwright tests to bypass GitHub OAuth entirely
 
----
+### 2.4 Application routes (Week 6 — unchanged)
 
-## 3. Provider User Info Requirements
-
-Fields our app tries to read from provider user info:
-
-- `id` (required): external provider user ID, normalized to string.
-- `login` (optional): preferred username/display handle.
-- `email` (optional): email from provider profile.
-- `name` (optional): full display name.
-
-Missing-field handling:
-
-- If `id` missing/null: abort callback flow, no login, redirect `/login` with
-  flash error.
-- If `login` missing/null: fallback username seed is `github_<id>`.
-- If `email` missing/null: store `NULL` email; do not crash.
-- If `name` missing/null: fallback display name to `login` or `github_<id>`.
+All `/applications/*` routes unchanged from Week 6 CONTRACTS.md.
 
 ---
 
-## 4. Local Identity Model and Linking Contract
+## 3. External API Contract
 
-### 4.1 Local user record shape after first-time OAuth login
+### GitHub OAuth [Week 7]
 
-`users` row includes:
+**External dependency:** `github.com` — behavior not under our control.
+We specify what our code does with the response, not what the response will be.
 
-- `id: int` (PK)
-- `username: str` (non-empty; generated from `login` or fallback)
-- `password_hash: str` (for OAuth-created users, a non-login placeholder hash is
-  allowed)
-- `created_at: datetime`
+**Authorization endpoint:** `https://github.com/login/oauth/authorize`
+**Token endpoint:** `https://github.com/login/oauth/access_token`
+**User info endpoint:** `https://api.github.com/user`
 
-### 4.2 External identity link shape
+**Required scopes:** `read:user` (for login/id), `user:email` (for email)
 
-`oauth_identity` row includes:
+**Representative user info payload shape** (for reference — not a guarantee):
+```json
+{
+  "id": 12345678,
+  "login": "okoliboma",
+  "name": "Boma Okoli",
+  "email": "boma@example.com",
+  "avatar_url": "https://avatars.githubusercontent.com/u/12345678"
+}
+```
 
-- `id: int` (PK)
-- `user_id: int` (FK -> `users.id`)
-- `provider: str` (e.g., `"github"`)
-- `provider_user_id: str` (normalized external `id`)
-- `provider_login: str | null`
-- `provider_email: str | null`
-- `created_at: datetime`
-- `updated_at: datetime`
+**Field mapping:**
 
-Constraints:
+| GitHub field | Local field | If missing/null |
+|---|---|---|
+| `id` (integer) | `provider_user_id` (string) | Required — abort if absent |
+| `login` (string) | `provider_login`, `username` | Use `f"github_{id}"` as username |
+| `email` (string) | `provider_email` | Store `None` — do not crash |
 
-- unique(`provider`, `provider_user_id`) to prevent duplicate external identity rows
-- one local user may have multiple identity rows (one per provider or account link)
+**What we cannot specify:** GitHub's actual response shape, rate limits,
+or behavior during outages. These are external dependencies.
 
-### 4.3 Create-or-link decision rules
+### Clearbit Company API (Week 6 — unchanged)
 
-- If (`provider`, `provider_user_id`) exists:
-  - load linked local user and log in (returning OAuth user path).
-- Else if existing local user is authenticated and chooses add-provider flow:
-  - create identity row linked to current local user (link path).
-- Else:
-  - create local user, then create identity row (first-time OAuth user path).
-
----
-
-## 5. Session and Cookie Contract After Successful OAuth Callback
-
-Session dictionary and login state:
-
-- `session["user_id"]`: local integer user ID (Flask-Login session key behavior)
-- OAuth transient keys (`oauth_state`, temporary redirect target) are removed
-  after callback handling.
-- `session.permanent`: set from remember-me decision.
-
-Cookie expectations:
-
-- session cookie exists after login
-- `SESSION_COOKIE_HTTPONLY = True`
-- `SESSION_COOKIE_SAMESITE = "Lax"`
-- `SESSION_COOKIE_SECURE = True` in production-like config
-- lifetime controlled by `PERMANENT_SESSION_LIFETIME`
-- remember-me uses Flask-Login remember cookie with configured duration
+See Week 6 CONTRACTS.md section 3.
 
 ---
 
-## 6. Logout Contract
+## 4. Authorization Rules
 
-Route: `GET|POST /logout` (existing route retained)
+### OAuth session state [Week 7]
 
-Local clear behavior:
+After a successful `/auth/github/callback`:
+- `login_user(user)` is called — Flask-Login sets `_user_id` in session
+- `session.permanent = False` (no remember-me for OAuth in Week 7)
+- Session cookie flags: `HttpOnly=True`, `SameSite=Lax`, `Secure=True` (prod)
 
-- `logout_user()` called
-- local session keys removed (`user_id` and transient auth keys)
-- session cookie invalidated/rotated per Flask session behavior
+### Logout behavior [Week 7]
 
-Provider behavior:
+- `logout_user()` clears Flask-Login session state
+- `session.clear()` clears all session data locally
+- **We do not clear the GitHub session** — the user remains logged into
+  GitHub. This is standard OAuth behavior. Users who want to fully
+  sign out of GitHub must do so at github.com.
 
-- app does **not** log the user out of GitHub
-- no provider-side revoke/logout call is made by default
+### Ownership rules (Week 6 — unchanged)
+
+| Action | Who | Non-authorized response |
+|--------|-----|------------------------|
+| View/edit/delete application | Owner only | 404 |
+| View insight | Owner only | 404 |
+
+**OWASP-style 404 rule:** Non-owners get 404, not 403.
 
 ---
 
-## 7. Security Contract
+## 5. Role Boundaries
 
-- CSRF protection is enabled on all state-changing form submissions.
-- Protected routes redirect anonymous users to `/login?next=<path>`.
-- Ownership-restricted resources continue returning 404 for non-owners.
-- Test-only login backdoor route exists only when `app.config["TESTING"]` is
-  true; returns 404 otherwise.
+| Role | Owns | Does not touch |
+|------|------|----------------|
+| Coordinator (Boma) | `CONTRACTS.md`, `coord_session.md`, `team_walkthrough.md`, `tests/e2e/test_full_lifecycle.py` | Route handlers, models |
+| Server-side (Darrell) | `/login/github`, `/auth/github/callback` in `app.py`, `services/` | Templates, models |
+| Client-side (Boma) | `templates/login.html` GitHub button, `tests/e2e/test_client_e2e.py` | `app.py`, `models.py` |
+| DB-and-security (Aden) | `models.py` `OAuthIdentity`, cookie config, CSRF, `tests/e2e/test_db_security_flow.py` | Route handlers, templates |
 
 ---
 
-## 8. Test Obligations Derived From This Contract
+## 6. Secrets Management [Week 7]
 
-Required contract-enforcement tests:
+All secrets loaded via `python-dotenv` at app startup.
+`.env` is gitignored — never committed.
+`.env.example` is committed with placeholder values.
 
-- Unit/integration:
-  - callback fails when provider `id` missing
-  - callback with partial payload (`email` missing) still succeeds without crash
-  - returning OAuth login reuses existing `oauth_identity` row
-  - logout clears local session state
-- Playwright (browser E2E):
-  - logged-out user cannot access protected page
-  - login via test backdoor reaches authenticated UI state
-  - logout returns user to unauthenticated behavior
+Required environment variables:
 
-Gap disclosure required in walkthrough/docs:
+| Variable | Required | Notes |
+|---|---|---|
+| `SECRET_KEY` | Yes | Signs session cookies — generate 32 random bytes |
+| `DATABASE_URL` | Yes | Postgres connection string |
+| `OAUTH_CLIENT_ID` | Yes | GitHub OAuth app client ID |
+| `OAUTH_CLIENT_SECRET` | Yes | GitHub OAuth app client secret |
+| `SESSION_COOKIE_SECURE` | No | Default `true` in prod, `false` in test |
+| `PERMANENT_SESSION_LIFETIME_SECONDS` | No | Default 1209600 (14 days) |
 
-- tests do not drive the real GitHub hosted authorization UI end-to-end
-- tests intentionally mock/stand in for post-redirect flow via test-login path
+Missing `SECRET_KEY`, `DATABASE_URL`, `OAUTH_CLIENT_ID`, or
+`OAUTH_CLIENT_SECRET` → app crashes on startup (strict `os.environ[key]`).
+
+---
+
+## 7. Known Limitations (Deliberate)
+
+| Limitation | Reason |
+|---|---|
+| Real GitHub redirect not tested | External dependency — use backdoor in tests, verify manually once |
+| SQLite in Playwright fixture | Hermetic tests; Postgres-specific features need testcontainers |
+| No Alembic migrations | Deferred — using `create_all` for classroom skeleton |
+| No pagination on applications list | Deferred to Week 8 |
+| OAuth `remember_me` not wired | Deferred to Week 8 |
+| `SESSION_COOKIE_SECURE` not verified in e2e | Plain HTTP in test fixture — needs HTTPS to verify |
