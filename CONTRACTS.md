@@ -68,6 +68,20 @@ One user may have multiple OAuth identities (one per provider).
 **Constraints:**
 - UNIQUE on (`provider`, `provider_user_id`) — one identity per provider per user
 
+### Implementation references
+
+| Concern | File | Symbol / Reference |
+|---|---|---|
+| ORM model — `users` | `models.py` | `class User(SQLModel, UserMixin, table=True)` |
+| ORM model — `job_applications` | `models.py` | `class JobApplication(SQLModel, table=True)` |
+| ORM model — `job_insights` | `models.py` | `class JobInsight(SQLModel, table=True)` |
+| ORM model — `oauth_identity` | `models.py` | `class OAuthIdentity(SQLModel, table=True)` |
+| Table creation at startup | `app.py` | `SQLModel.metadata.create_all(engine)` |
+| Model registration for `metadata` | `app.py` | `from models import User, JobApplication, JobInsight, OAuthIdentity` |
+| Database engine / connection | `app.py` | SQLAlchemy engine built from `DATABASE_URL` |
+| Schema-conformance test | `tests/test_db_security_contract.py` | Asserts live DB matches this contract |
+| Migrations | — | Not implemented; Alembic deferred (see § 7) |
+
 ---
 
 ## 2. Endpoint Contracts
