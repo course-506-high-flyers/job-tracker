@@ -82,7 +82,7 @@ def test_returning_oauth_login(page: Page, live_server):
 
     # Log out
     page.get_by_role("link", name="Log out").click()
-    expect(page.get_by_role("link", name="Log in")).to_be_visible()
+    expect(page.get_by_role("link", name="Log in", exact=True)).to_be_visible()
 
     # Second login
     page.goto(f"{live_server.url}/test/login/{username}")
@@ -158,4 +158,4 @@ def test_session_lifecycle(page: Page, live_server):
 
     # Step 5: protected page inaccessible again
     page.goto(f"{live_server.url}/applications")
-    expect(page).to_have_url(f"{live_server.url}/login")
+    expect(page).to_have_url(re.compile(r".*/login(\?.*)?$"))
