@@ -1,14 +1,15 @@
-# Course 506 Week 5 Skeleton — two-container app.
+# Course 506 — Job Application Tracker
 #
 # Run with: docker compose up
-# The Flask app will be available at http://localhost:5000
+# Flask available at http://localhost:5000 (dev) or via nginx :443 (prod, once
+# Darrell's nginx service lands).
 #
-# The two services:
-#   app — Flask, talks to the database via the hostname "db"
-#   db  — Postgres, holds the users table
+# Services:
+#   app — Flask, talks to "db" over the backend network
+#   db  — Postgres, no published ports, attached only to backend network
 #
-# In production you'd run Postgres on a managed service (RDS, etc.) instead of
-# in a container, but Compose mirrors that architecture closely.
+# Production note: in real deployment, Postgres lives on a managed service
+# (RDS) instead of in a container. Compose mirrors the architecture closely.
 
 services:
   app:
@@ -30,20 +31,61 @@ services:
       # Mount the source so changes are picked up without rebuilding.
       # Flask's debug mode auto-reloads on file changes.
       - .:/app
+    # ------------------------------------------------------------------------
+    # ADEN -> DARRELL coordination note (Assignment 8):
+    # I added `networks: [backend]` so app: can still reach the now-isolated
+    # db: service. Darrell, when you wire in nginx + gunicorn, please:
+    #   1. Drop the `ports: 5000:5000` (nginx becomes the only public ingress).
+    #   2. Add app: to a `frontend` network alongside nginx.
+    #   3. Keep app: on `backend` so it can still reach db.
+    # ------------------------------------------------------------------------
+    networks:
+      - backend
 
   db:
     image: postgres:16-alpine
+    # ------------------------------------------------------------------------
+    # ADEN: db: hardening (Assignment 8 Part A — DB-sec slice)
+    # ------------------------------------------------------------------------
+    # 1. No `ports:` key — Postgres is unreachable from the host. The trust
+    #    boundary lives at the docker network. Mirrored in role_dbsec.md Q4.
+    # 2. Credentials must come from .env. The `${VAR:?msg}` syntax aborts
+    #    `docker compose up` if any are missing — fail-loud beats fail-weak.
+    #    Copy .env.example to .env and fill in real values before first run.
+    # 3. Named volume `pgdata` survives `docker compose down` but not
+    #    `docker compose down -v`. Mirrored in common_questions.md Q6.
+    # 4. Healthcheck unchanged from week 5 skeleton — still the right tool.
+    # ------------------------------------------------------------------------
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: app
+      POSTGRES_USER:     ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB:       ${POSTGRES_DB:?set POSTGRES_DB in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s
       timeout: 2s
       retries: 10
+    networks:
+      - backend
+    restart: unless-stopped
 
 volumes:
   pgdata:
+
+networks:
+  # Backend network — app <-> db only. No published ports anywhere on it.
+  #
+  # Production hardening upgrade (flip when Darrell's nginx lands and we're
+  # confident no service on this network needs outbound internet):
+  #     internal: true
+  # That blocks all internet egress from db: and app:, neutralizing data
+  # exfil from a compromised app container. Discussed in role_dbsec.md Q4.
+  #
+  # Holding off today because the app: container fetches Clearbit + API
+  # Ninjas in /applications/<id>/insight; flipping `internal: true` without
+  # routing those calls through nginx (or a forward proxy) would break that
+  # endpoint. Coord item for Darrell.
+  backend:
+    driver: bridge

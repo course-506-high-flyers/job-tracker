@@ -14,3 +14,29 @@ venv/
 # S3-synced content is each student's own; don't commit
 S3_content/*
 !S3_content/.gitkeep
+
+# ----------------------------------------------------------------------------
+# Assignment 8 — production hardening (Aden / DB-sec slice)
+# ----------------------------------------------------------------------------
+# TLS material. The certs/ directory is created on the host and bind-mounted
+# into the nginx container at /etc/nginx/certs. Nothing in here ever lands
+# in the image or on origin.
+certs/
+*.key
+*.crt
+*.pem
+*.csr
+*.p12
+*.pfx
+
+# Backup .env files. We had a near-miss (.env.save / .env.save.bak in the
+# clone history — see ADENDATA Turn 21); these patterns make sure a stray
+# `cp .env .env.save` never lands in a commit again.
+.env.save
+.env.save.bak
+.env.*.local
+.env.*.bak
+
+# nginx runtime state — the dev image generates these on first boot.
+nginx/logs/
+nginx/cache/
