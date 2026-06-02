@@ -5,7 +5,7 @@
 
   <div class="mb-5">
     <h1 class="fw-bold">Job Application Tracker</h1>
-    <p class="lead">A web app that helps job seekers organize and monitor their job applications in one place - tracking status, deadlines, and follow-ups so nothing falls through the cracks.</p>
+    <p class="lead">A web app that helps job seekers organize and monitor their job applications in one place - tracking status and follow-ups so nothing falls through the cracks.</p>
   </div>
 
   <hr class="my-4">
@@ -17,7 +17,7 @@
         <tr><th>Name</th><th>Role</th><th>Responsibilities</th></tr>
       </thead>
       <tbody>
-        <tr><td>Boma</td><td>Client-side</td><td>HTML templates, Bootstrap styling, JavaScript</td></tr>
+        <tr><td>Boma</td><td>Client-side + Coordinator</td><td>HTML templates, Bootstrap styling, JavaScript, team coordination</td></tr>
         <tr><td>Aden</td><td>Db-and-security</td><td>Database schema, migrations, authentication, session security</td></tr>
         <tr><td>Darrell</td><td>Server-side</td><td>Flask routes, business logic, API integration</td></tr>
       </tbody>
@@ -35,20 +35,20 @@
   <hr class="my-4">
 
   <div class="mb-5">
-    <h2 class="fw-semibold mb-3">Endpoints planned</h2>
+    <h2 class="fw-semibold mb-3">Endpoints implemented</h2>
     <table class="table table-sm table-bordered font-monospace">
       <thead class="table-light">
         <tr><th>Method</th><th>Route</th><th>Description</th></tr>
       </thead>
       <tbody>
-        <tr><td>GET</td><td>/</td><td>Home page - dashboard summary if logged in</td></tr>
-        <tr><td>GET</td><td>/jobs</td><td>List all job applications for the logged-in user</td></tr>
-        <tr><td>POST</td><td>/jobs</td><td>Create a new job application record</td></tr>
-        <tr><td>GET</td><td>/jobs/&lt;id&gt;</td><td>Show detail view for one job application</td></tr>
-        <tr><td>POST</td><td>/jobs/&lt;id&gt;/edit</td><td>Update an existing job application</td></tr>
-        <tr><td>POST</td><td>/jobs/&lt;id&gt;/delete</td><td>Delete a job application</td></tr>
-        <tr><td>GET</td><td>/stats</td><td>Show application stats by status and by week</td></tr>
-        <tr><td>GET</td><td>/company/&lt;name&gt;</td><td>Fetch and display company info from external API</td></tr>
+        <tr><td>GET</td><td>/</td><td>Home page - dashboard if logged in</td></tr>
+        <tr><td>GET</td><td>/applications</td><td>List all job applications for the logged-in user</td></tr>
+        <tr><td>GET/POST</td><td>/applications/new</td><td>Create a new job application record</td></tr>
+        <tr><td>GET</td><td>/applications/&lt;id&gt;</td><td>Show detail view for one job application</td></tr>
+        <tr><td>GET/POST</td><td>/applications/&lt;id&gt;/edit</td><td>Update an existing job application</td></tr>
+        <tr><td>POST</td><td>/applications/&lt;id&gt;/delete</td><td>Delete a job application</td></tr>
+        <tr><td>GET</td><td>/login/github</td><td>Initiate GitHub OAuth flow</td></tr>
+        <tr><td>GET</td><td>/auth/github/callback</td><td>Handle GitHub OAuth callback</td></tr>
       </tbody>
     </table>
   </div>
@@ -58,10 +58,11 @@
   <div class="mb-5">
     <h2 class="fw-semibold mb-3">Web-based data source</h2>
     <ul class="list-unstyled">
-      <li><strong>API name:</strong> <a href="https://www.themuse.com/developers/api/v2" target="_blank">The Muse API</a></li>
-      <li><strong>Endpoint:</strong> <code>https://www.themuse.com/api/public/jobs?company=NAME&page=1</code></li>
-      <li><strong>What it provides:</strong> Job listings and company profiles including description, industry, and size</li>
-      <li><strong>Free-tier limits:</strong> 500 requests/hour, no API key required for basic access</li>
+      <li><strong>Primary API:</strong> <a href="https://clearbit.com/docs" target="_blank">Clearbit Company API</a></li>
+      <li><strong>Endpoint:</strong> <code>https://company.clearbit.com/v2/companies/find?domain=DOMAIN</code></li>
+      <li><strong>What it provides:</strong> Company name, description, industry, employee count, and logo</li>
+      <li><strong>Fallback API:</strong> <a href="https://api-ninjas.com/api/logo" target="_blank">API Ninjas Logo API</a> — used when Clearbit returns no result</li>
+      <li><strong>Manual fallback:</strong> User can enter company details manually if both APIs return no result</li>
     </ul>
   </div>
 
@@ -69,8 +70,9 @@
 
   <div class="mb-5">
     <h2 class="fw-semibold mb-3">Schema sketch</h2>
-    <pre class="bg-light p-3 rounded border"><code>Users   (id, username, password_hash, created_at)
-Jobs    (id, user_id, company, role, status, date_applied, deadline, notes, url)</code></pre>
+    <pre class="bg-light p-3 rounded border"><code>Users           (id, email, display_name, password_hash, created_at)
+OAuthIdentity   (id, user_id, provider, provider_user_id, created_at)
+JobApplication  (id, user_id, company, role, status, date_applied, notes, url)</code></pre>
   </div>
 
   <hr class="my-4">
