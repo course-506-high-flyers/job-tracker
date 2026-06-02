@@ -48,12 +48,12 @@ services:
     # ADEN: db: hardening (Assignment 8 Part A — DB-sec slice)
     # ------------------------------------------------------------------------
     # 1. No `ports:` key — Postgres is unreachable from the host. The trust
-    #    boundary lives at the docker network. Mirrored in role_dbsec.md Q4.
+    #    boundary lives at the docker network. Mirrored in role_dbsec_aden.md Q4.
     # 2. Credentials must come from .env. The `${VAR:?msg}` syntax aborts
     #    `docker compose up` if any are missing — fail-loud beats fail-weak.
     #    Copy .env.example to .env and fill in real values before first run.
     # 3. Named volume `pgdata` survives `docker compose down` but not
-    #    `docker compose down -v`. Mirrored in common_questions.md Q6.
+    #    `docker compose down -v`. Mirrored in common_questions_aden.md Q6.
     # 4. Healthcheck unchanged from week 5 skeleton — still the right tool.
     # ------------------------------------------------------------------------
     environment:
@@ -81,7 +81,7 @@ networks:
   # confident no service on this network needs outbound internet):
   #     internal: true
   # That blocks all internet egress from db: and app:, neutralizing data
-  # exfil from a compromised app container. Discussed in role_dbsec.md Q4.
+  # exfil from a compromised app container. Discussed in role_dbsec_aden.md Q4.
   #
   # Holding off today because the app: container fetches Clearbit + API
   # Ninjas in /applications/<id>/insight; flipping `internal: true` without
