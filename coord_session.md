@@ -200,3 +200,37 @@ meaning tightening app.py would break the e2e suite.
 Aden seeded `OAUTH_CLIENT_ID` and `OAUTH_CLIENT_SECRET` in
 `tests/e2e/conftest.py`. This is exactly the contract-drift the coordinator
 role exists to catch and surface to the team before tagging.
+
+---
+
+---
+
+## Week 8 coordination entry — about.html discrepancy resolution
+
+**Issue surfaced by:** Aden and Darrell (team chat, June 2)
+
+`about.html` still described the Week 6 plan after Week 7 shipped.
+Specific gaps flagged:
+- Routes listed as `/jobs/`, `/stats`, `/company/<name>` — shipped product uses `/applications/`
+- Data source listed as The Muse API — shipped product uses Clearbit + API Ninjas
+- `deadline` column listed in schema — never implemented
+- `/stats` route listed — never built
+
+**deadline check:**
+Searched CONTRACTS.md and this file for any mention of `deadline`.
+Result: not found in either. The column appeared only in the original
+`about.html` Week 6 planning spec and never made it into the contract
+or the implementation. Schema is correct as-is — no fix needed on
+DB-and-security side.
+
+**Resolution:**
+`about.html` updated on `boma-hardening` branch (commit f64a5aa) to
+reflect what actually shipped: `/applications/` routes, Clearbit +
+API Ninjas, no `/stats`, no `deadline`, schema sketch updated to match
+`models.py` exactly including `JobInsight` and `OAuthIdentity` tables.
+
+**Confirmation to team:**
+`/stats` and `deadline` are not in CONTRACTS.md and are not planned
+for Week 8. If the team wants to scope them for a future release,
+that requires a contract revision — `deadline` would be DB-and-security,
+`/stats` would be server-side.
