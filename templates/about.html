@@ -49,6 +49,9 @@
         <tr><td>POST</td><td>/applications/&lt;id&gt;/delete</td><td>Delete a job application</td></tr>
         <tr><td>GET</td><td>/login/github</td><td>Initiate GitHub OAuth flow</td></tr>
         <tr><td>GET</td><td>/auth/github/callback</td><td>Handle GitHub OAuth callback</td></tr>
+        <tr><td>GET/POST</td><td>/login</td><td>Password-based login form</td></tr>
+        <tr><td>GET/POST</td><td>/register</td><td>New user registration</td></tr>
+        <tr><td>GET</td><td>/logout</td><td>Clear session and redirect to login</td></tr>
       </tbody>
     </table>
   </div>
@@ -61,8 +64,8 @@
       <li><strong>Primary API:</strong> <a href="https://clearbit.com/docs" target="_blank">Clearbit Company API</a></li>
       <li><strong>Endpoint:</strong> <code>https://company.clearbit.com/v2/companies/find?domain=DOMAIN</code></li>
       <li><strong>What it provides:</strong> Company name, description, industry, employee count, and logo</li>
-      <li><strong>Fallback API:</strong> <a href="https://api-ninjas.com/api/logo" target="_blank">API Ninjas Logo API</a> — used when Clearbit returns no result</li>
-      <li><strong>Manual fallback:</strong> User can enter company details manually if both APIs return no result</li>
+      <li class="mt-2"><strong>Fallback API:</strong> <a href="https://api-ninjas.com/api/logo" target="_blank">API Ninjas Logo API</a> — used when Clearbit returns no result</li>
+      <li class="mt-2"><strong>Manual fallback:</strong> User can enter company details manually if both APIs return no result</li>
     </ul>
   </div>
 
@@ -70,9 +73,16 @@
 
   <div class="mb-5">
     <h2 class="fw-semibold mb-3">Schema sketch</h2>
-    <pre class="bg-light p-3 rounded border"><code>Users           (id, email, display_name, password_hash, created_at)
-OAuthIdentity   (id, user_id, provider, provider_user_id, created_at)
-JobApplication  (id, user_id, company, role, status, date_applied, notes, url)</code></pre>
+    <pre class="bg-light p-3 rounded border"><code>Users           (id, username, password_hash, created_at)
+
+OAuthIdentity   (id, user_id, provider, provider_user_id, provider_login,
+                 provider_email, created_at, updated_at)
+
+JobApplication  (id, user_id, company, position, status, applied_date,
+                 notes, job_url, created_at, updated_at)
+
+JobInsight      (id, company, rating, review_count, industry,
+                 headquarters, description, fetched_at)</code></pre>
   </div>
 
   <hr class="my-4">
