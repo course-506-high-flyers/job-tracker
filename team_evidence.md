@@ -26,25 +26,22 @@ URL: https://github.com/course-506-high-flyers/job-tracker
 
 ### 1. `main` with the stack committed
 
-> **TODO before submission:** replace with the direct link to `main`
-> after `hardening` has been merged in.
-> Format:
-> `https://github.com/course-506-high-flyers/job-tracker/tree/main`
-> Verification before submission: visit the link, confirm `nginx.conf`,
-> `docker-compose.yml`, and `gunicorn.conf.py` are all present at the
-> tree root.
-
 Link: https://github.com/course-506-high-flyers/job-tracker/tree/main
+
+As of submission (Jun 3, 2026), `main` HEAD is `571c211`. The tree
+contains the full production stack — `nginx.conf` (256 lines, hardened
+TLS + rate-limit zones + attack-path 404s + Boma's security headers
+and `/static/` block), `docker-compose.yml`, and `gunicorn.conf.py`
+— plus all Part B + Part C per-person documents.
 
 ### 2. Merged `hardening` branch
 
-> **TODO before submission:** push `hardening` to origin (currently
-> exists locally only on Aden's clone), merge all three personal
-> branches into it via PRs, then merge `hardening` → `main`.
-> Format:
-> `https://github.com/course-506-high-flyers/job-tracker/tree/hardening`
-
 Link: https://github.com/course-506-high-flyers/job-tracker/tree/hardening
+
+`hardening` HEAD is `a40c3ac` — the result of merging `boma-hardening`
+into `hardening` via PR #12 (merged 2026-06-03 14:57 UTC by @okolib).
+`hardening` was then merged into `main` via PR #13 (merged
+2026-06-03 17:31 UTC by @okolib).
 
 ### 3. Per-student `<name>-hardening` branches
 
@@ -54,9 +51,9 @@ branches. They're part of the evidence."
 
 | Owner | Branch | Status | Link |
 |---|---|---|---|
-| Boma   | `boma-hardening`    | TODO — Boma to push | https://github.com/course-506-high-flyers/job-tracker/tree/boma-hardening |
-| Aden   | `aden-hardening`    | **On origin.** Tracking commit `b5c028e` (Part A slice). | https://github.com/course-506-high-flyers/job-tracker/tree/aden-hardening |
-| Darrell | `darrell-hardening` | TODO — Darrell to push | https://github.com/course-506-high-flyers/job-tracker/tree/darrell-hardening |
+| Boma   | `boma-hardening`    | **On origin.** HEAD `afea3ef`. Frontend Part A + Part B + Part C; merged to `main` via PR #12 → PR #13. | https://github.com/course-506-high-flyers/job-tracker/tree/boma-hardening |
+| Aden   | `aden-hardening`    | **On origin.** HEAD `3b6a8ff` (`b5c028e` Part A + `3b6a8ff` Part B/C). Merged to `main` via recovery PR #14 — see conflict-resolution log below. | https://github.com/course-506-high-flyers/job-tracker/tree/aden-hardening |
+| Darrell | `darrell-hardening` | **On origin.** HEAD `7e10ff4`. Part A `ProxyFix` middleware + Part C backend documentation. Not yet merged to `main` as of submission window. | https://github.com/course-506-high-flyers/job-tracker/tree/darrell-hardening |
 
 ---
 
@@ -75,11 +72,11 @@ The hardening surface was split per the brief's role boundaries:
 | Cert generation | `scripts/make-dev-certs.sh` | Aden |
 | Dockerfile swap to gunicorn | `Dockerfile` | Darrell |
 | Secrets hygiene | `.gitignore` (Assignment 8 block: `certs/`, `.env.save*`, `*.key`, `*.crt`, `*.pem`) | Aden |
-| Production-stack docs | `README.md` "Running the production stack" section | Team (TODO) |
+| Production-stack docs | `README.md` "Running the production stack" section | Boma (landed via PR #12, commit `306ec1d`) |
 
-The merge structure (each personal branch landing on `hardening` via
-PR) preserves the per-slice attribution in git history for the
-reviewer.
+The merge structure preserves the per-slice attribution in git history
+for the reviewer (each personal branch is still on origin per the
+brief's preservation requirement).
 
 ---
 
@@ -106,31 +103,97 @@ The full README section with copy-pasteable commands lives in the
 
 ---
 
-## PRs into `hardening`
+## PRs
 
-> **TODO before submission:** list each PR by number with link, in
-> merge order.
-> Suggested format:
+The full merge sequence, in chronological order:
 
-| # | PR | Slice | Merged | Link |
+| # | PR | Slice | Merged (UTC) | Merged by | Link |
+|---|---|---|---|---|---|
+| 1 | #12 | Boma — frontend hardening (`boma-hardening` → `hardening`) | 2026-06-03 14:57 | @okolib | https://github.com/course-506-high-flyers/job-tracker/pull/12 |
+| 2 | #13 | `hardening` → `main` (carries Boma's slice; `week8-final` tag landed at `37341a9`) | 2026-06-03 17:31 | @okolib | https://github.com/course-506-high-flyers/job-tracker/pull/13 |
+| 3 | #14 | Aden — DB/sec hardening + Part B + Part C (`aden-hardening-into-main` → `main`); recovery PR after Draft PR #11 was bypassed | 2026-06-03 18:06 | @okolib | https://github.com/course-506-high-flyers/job-tracker/pull/14 |
+| 4 | (follow-up commit `571c211`, not a PR) | Boma activated her security headers + `/static/` block inside the `=== BOMA ===` slot Aden's `nginx.conf` left for her | 2026-06-03 18:21 | @okolib | https://github.com/course-506-high-flyers/job-tracker/commit/571c211 |
+
+PRs not in the `main` lineage:
+
+| # | PR | Slice | State | Link |
 |---|---|---|---|---|
-| 1 | TODO | Boma — frontend hardening   | TODO date | TODO link |
-| 2 | TODO | Aden — DB/sec hardening     | TODO date | TODO link |
-| 3 | TODO | Darrell — backend hardening | TODO date | TODO link |
-| 4 | TODO | `hardening` → `main`        | TODO date | TODO link |
+| — | #11 | Aden — original Draft PR (`aden-hardening` → `hardening`), opened 2026-06-02 16:11 UTC | CLOSED (superseded by PR #14) | https://github.com/course-506-high-flyers/job-tracker/pull/11 |
+
+Darrell's PR is pending as of the submission window. His `app.py`
+ProxyFix and `role_backend.md` / `llm_probe_backend.md` documents
+exist on `darrell-hardening` but have not yet landed on `main`
+via PR.
 
 ---
 
 ## Conflict-resolution log (the "composition problem" lived in our repo)
 
-The brief notes that merge conflicts surface the composition problem.
-For grading transparency, list any non-trivial conflicts that came up
-during the merge sequence above.
+The Assignment 8 merge sequence on Jun 3, 2026 surfaced one
+non-trivial composition issue: a Draft PR was bypassed in the team
+merge pass, and a follow-up recovery PR carried the bypassed work in
+afterward.
 
-> **TODO before submission:** fill in if any non-trivial conflicts
-> arose. If no conflicts arose, write "No non-trivial conflicts; each
-> slice touched a distinct file region per the per-slice ownership
-> table above."
+**Timeline:**
+
+1. **2026-06-02 16:11 UTC** — Aden opens PR #11 (`aden-hardening` →
+   `hardening`) as **Draft**. Intent: coordinate the merge order with
+   Boma and Darrell before flipping the PR to "Ready for review."
+
+2. **2026-06-03 14:57 UTC** — Boma (acting as coordinator) merges
+   PR #12 (`boma-hardening` → `hardening`). PR #11 is skipped because
+   the Draft flag deprioritized it in the merge queue.
+
+3. **2026-06-03 17:31 UTC** — Boma merges PR #13 (`hardening` →
+   `main`) and the `week8-final` tag lands at commit `37341a9`.
+   PR #11 still not merged. Aden's Part A nginx hardening (rate-limit
+   zones, attack-path 404s, TLS hardening, attack-path test fixture
+   and pytest suite, dev-cert generator) and the `_aden`-suffixed
+   Part B + Part C deliverables are NOT in `main` or the tag.
+
+4. **2026-06-03 17:43 UTC** — Aden opens recovery PR #14
+   (`aden-hardening-into-main` → `main`). PR #14 is a merge commit of
+   `aden-hardening` (Aden's work) and `main` HEAD (Boma's merged
+   state), with four conflict resolutions documented in the PR body:
+   - `.gitignore`: kept Aden's 42-line superset (Aden adds A8
+     cert/secret ignore rules on top of Boma's 17 baseline lines).
+   - `nginx.conf`: kept Aden's 262-line hardened config with explicit
+     `=== BOMA ===` placeholder slots for her security headers and
+     `/static/` block; her actual values to be re-applied in a
+     follow-up commit (see step 6).
+   - `team_evidence.md`: kept Aden's 137-line version (this file)
+     over Boma's 24-line stub, since Aden's matches the Pattern A
+     structure the brief asks for.
+   - `docker-compose.yml`: kept Boma's 43-line version (already
+     deployed in `week8-final`); deliberately did NOT apply Aden's
+     stricter env-var requirement, backend-only network, or restart
+     policy in this PR to avoid breaking the deployed stack. Those
+     improvements remain on `aden-hardening` as a follow-up candidate.
+
+5. **2026-06-03 18:06 UTC** — Boma reviews and merges PR #14. Commit
+   `407e258` brings Aden's work onto `main`.
+
+6. **2026-06-03 18:21 UTC** — Boma pushes commit `571c211`
+   "Activate Boma security headers and static block in nginx.conf",
+   porting her real `add_header` directives (HSTS, X-Frame-Options,
+   X-Content-Type-Options, Referrer-Policy, Content-Security-Policy)
+   and `/static/` block into the `=== BOMA ===` slots Aden's
+   `nginx.conf` left for her. This resolves the only regression risk
+   introduced by PR #14 — without this commit, `main` would have had
+   commented placeholders where Boma's working headers previously
+   lived.
+
+**Lesson recorded:** Draft PRs need an explicit "ready by X" comment
+on the PR body itself, not just a team-channel signal. Without that
+explicit pin, the Draft flag becomes "don't merge" indefinitely, and
+the work gets stranded. The team's merge protocol going forward should
+treat Draft PRs as opt-out of the next coordinated merge unless the
+PR body says otherwise.
+
+The `week8-final` tag intentionally remains pointing at the
+pre-PR-#14 state (`37341a9`) as a record of what was originally
+submitted at that moment. The post-recovery state lives on `main`
+HEAD (`571c211`) and is the canonical "as-graded" team output.
 
 ---
 
