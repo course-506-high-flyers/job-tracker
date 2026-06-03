@@ -139,3 +139,41 @@ These bylaws may be amended at any time, provided all four members agree in writ
 ---
 
 *README v1.0 — Week 4 setup. Subject to revision during Week 5 skeleton walkthrough.*
+
+## Running the production stack
+
+The production stack runs nginx in front of gunicorn in front of Flask.
+
+### Prerequisites
+- Docker and Docker Compose installed
+- A self-signed cert in `certs/` (gitignored — generate once with the command below)
+
+### Generate the self-signed certificate (first time only)
+```bash
+mkdir -p certs
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout certs/key.pem \
+  -out certs/cert.pem \
+  -subj "/CN=localhost"
+```
+
+### Start the stack
+```bash
+docker compose up --build -d
+```
+
+### Verify it is running
+```bash
+curl -k https://localhost
+```
+
+The app is served at https://localhost via nginx on port 443.
+nginx proxies to gunicorn on port 8000 inside the Docker network.
+The database runs on the same Docker network and is not exposed publicly.
+
+### Stop the stack
+```bash
+docker compose down
+```
+
+Note: `docker compose down -v` will also delete the database volume and all data.
