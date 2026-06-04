@@ -1,0 +1,79 @@
+[
+  {
+    "path": "/.env",
+    "category": "secret-exfil",
+    "note": "Probes for the committed .env file"
+  },
+  {
+    "path": "/.env.example",
+    "category": "secret-exfil",
+    "note": "Template file in repo; should still 404 over the wire"
+  },
+  {
+    "path": "/.env.save",
+    "category": "repo-specific",
+    "note": "Real .env.save near-miss in this clone's history (ADENDATA Turn 21)"
+  },
+  {
+    "path": "/.env.save.bak",
+    "category": "repo-specific",
+    "note": "Sibling of .env.save; same near-miss"
+  },
+  {
+    "path": "/.git/config",
+    "category": "vcs-exfil",
+    "note": "Probes for an exposed .git directory"
+  },
+  {
+    "path": "/wp-login.php",
+    "category": "wordpress-probe",
+    "note": "Most-scanned WordPress endpoint on the public internet"
+  },
+  {
+    "path": "/wp-admin/",
+    "category": "wordpress-probe"
+  },
+  {
+    "path": "/xmlrpc.php",
+    "category": "wordpress-probe",
+    "note": "WordPress XML-RPC endpoint; common amplification target"
+  },
+  {
+    "path": "/phpmyadmin/",
+    "category": "admin-panel-probe",
+    "note": "Common database admin panel"
+  },
+  {
+    "path": "/adminer.php",
+    "category": "admin-panel-probe"
+  },
+  {
+    "path": "/admin",
+    "category": "admin-panel-probe",
+    "note": "Generic admin path; this app does not define one"
+  },
+  {
+    "path": "/backup.sql",
+    "category": "data-exfil",
+    "note": "Probes for a stray SQL dump"
+  },
+  {
+    "path": "/dump.sql",
+    "category": "data-exfil"
+  },
+  {
+    "path": "/test/login/aden",
+    "category": "repo-specific",
+    "note": "TESTING-gated backdoor in app.py:354. Returns 404 from Flask in prod (TESTING=False); nginx 404 is belt-and-suspenders."
+  },
+  {
+    "path": "/test/login/admin",
+    "category": "repo-specific",
+    "note": "Same backdoor, admin variant"
+  },
+  {
+    "path": "/static/../app.py",
+    "category": "path-traversal",
+    "note": "nginx normalizes ../ before location match; this should not exfil source"
+  }
+]
