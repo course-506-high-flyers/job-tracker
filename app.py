@@ -33,6 +33,7 @@ from authlib.integrations.flask_client import OAuth
 from flask_login import LoginManager, current_user, login_required, login_user, logout_user
 from flask_wtf.csrf import CSRFProtect
 from sqlmodel import SQLModel, Session, create_engine, select
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from models import User, JobApplication, JobInsight, OAuthIdentity  # noqa: F401
@@ -43,6 +44,12 @@ from services.company_api import get_cached_insight, refresh_insight
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
+
+# nginx terminates HTTPS and forwards requests to gunicorn over HTTP.
+# ProxyFix makes Flask respect X-Forwarded-* headers from nginx so request.scheme,
+# secure cookies, redirects, and url_for(..., _external=True) reflect the original
+# client-facing HTTPS request instead of the internal Docker HTTP hop.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 
 def _env_bool(key: str, default: bool) -> bool:
