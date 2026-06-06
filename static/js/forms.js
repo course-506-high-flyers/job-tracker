@@ -1,4 +1,4 @@
-// Course 506 Week 5 — Client-side JavaScript
+// Job Application Tracker — client-side JavaScript
 //
 // This file demonstrates the one piece of work the browser has to do that
 // the server can't: respond instantly to user input.

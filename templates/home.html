@@ -1,61 +1,112 @@
 {% extends "base.html" %}
 
-{% block title %}Home — Course 506 Week 5{% endblock %}
+{% block title %}Home — Job Application Tracker{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-9">
+    <div class="col-lg-10">
 
-        <div class="text-center my-4">
-            <h1 class="display-5 mb-3">Course 506 — Week 5 Skeleton</h1>
-            <p class="lead text-muted">
-                Flask + Postgres + SQLModel + Bootstrap, with your S3 site on board.
+        <section class="hero-panel text-center">
+            <p class="hero-eyebrow mb-2">High Flyers · Course 506</p>
+            <h1 class="display-5 fw-bold mb-3">Organize your job search in one place</h1>
+            <p class="lead hero-lead mx-auto mb-4">
+                Track applications from first apply to final offer, update your pipeline stages,
+                and pull company insights — without losing follow-ups in a spreadsheet.
             </p>
+            {% if user %}
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a href="{{ url_for('applications_list') }}" class="btn btn-primary btn-lg px-4">
+                    View my applications
+                </a>
+                <a href="{{ url_for('applications_new') }}" class="btn btn-outline-primary btn-lg px-4">
+                    Add application
+                </a>
+            </div>
+            {% else %}
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4">Create account</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg px-4">Log in</a>
+            </div>
+            {% endif %}
+        </section>
+
+        <div class="row g-4 mt-2">
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Track applications</h5>
+                        <p class="card-text text-muted">
+                            Record company, role, status, and dates for every application.
+                            Move entries through applied, interviewing, offered, and more.
+                        </p>
+                        {% if user %}
+                        <a href="{{ url_for('applications_list') }}" class="btn btn-sm btn-primary">Open dashboard</a>
+                        {% else %}
+                        <a href="{{ url_for('register') }}" class="btn btn-sm btn-outline-primary">Get started</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Company insights</h5>
+                        <p class="card-text text-muted">
+                            Enrich applications with live company data — industry, headquarters,
+                            and ratings — so you know who you are interviewing with.
+                        </p>
+                        <a href="{{ url_for('about') }}" class="btn btn-sm btn-outline-primary">Learn more</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Secure sign-in</h5>
+                        <p class="card-text text-muted">
+                            Sign in with GitHub or a password. Your applications are private
+                            to your account — only you can view and edit your records.
+                        </p>
+                        {% if user %}
+                        <span class="badge text-bg-success">Signed in as {{ user.username }}</span>
+                        {% else %}
+                        <a href="{{ url_for('login') }}" class="btn btn-sm btn-outline-primary">Sign in</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 mt-1">
             <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Your S3 site</h5>
-                        <p class="card-text">
-                            Whatever you've synced from your S3 bucket lives here.
-                            Run <code>aws s3 sync</code> from the README, then click below.
+                <div class="card feature-card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">Team portfolio</h5>
+                        <p class="card-text text-muted flex-grow-1">
+                            Visit our synced S3 portfolio site for project documentation,
+                            demos, and team deliverables.
                         </p>
-                        <a href="{{ url_for('site_home') }}" class="btn btn-primary">
-                            View My Site
+                        <a href="{{ url_for('site_home') }}" class="btn btn-sm btn-outline-secondary align-self-start">
+                            View portfolio
                         </a>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">About this skeleton</h5>
-                        <p class="card-text">
-                            Project overview, team members, planned endpoints, and schema.
-                            Each team replaces the placeholder content with their own.
+                <div class="card feature-card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">About the project</h5>
+                        <p class="card-text text-muted flex-grow-1">
+                            See the team, endpoints, database schema, and external APIs
+                            that power this application.
                         </p>
-                        <a href="{{ url_for('about') }}" class="btn btn-outline-primary">
+                        <a href="{{ url_for('about') }}" class="btn btn-sm btn-outline-secondary align-self-start">
                             About page
                         </a>
                     </div>
                 </div>
             </div>
         </div>
-
-        {% if user %}
-        <div class="alert alert-success mt-4 mb-0">
-            You're logged in as <strong>{{ user.username }}</strong>. The auth flow uses
-            real Flask sessions backed by a Postgres <code>users</code> table.
-        </div>
-        {% else %}
-        <div class="alert alert-light border mt-4 mb-0 text-muted">
-            Not logged in. Use the navbar to <a href="{{ url_for('login') }}">log in</a>
-            or <a href="{{ url_for('register') }}">register</a> — the auth flow uses real
-            Flask sessions backed by a Postgres <code>users</code> table.
-        </div>
-        {% endif %}
 
     </div>
 </div>

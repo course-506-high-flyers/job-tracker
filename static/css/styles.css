@@ -1,13 +1,148 @@
-/* Course 506 Week 5 Skeleton — minimal custom styles.
-   Bootstrap handles the bulk of layout and components. Add team-specific
-   styling here as your project grows. */
+/* Job Application Tracker — site-wide styles */
+
+:root {
+    --brand-navy: #1a365d;
+    --brand-navy-dark: #122840;
+    --brand-accent: #2563eb;
+    --brand-accent-hover: #1d4ed8;
+    --surface-muted: #f8fafc;
+    --text-muted: #64748b;
+    --border-subtle: #e2e8f0;
+}
 
 body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    background-color: var(--surface-muted);
+    color: #1e293b;
 }
 
 main {
     flex: 1;
+}
+
+/* Navbar */
+.site-navbar {
+    background-color: var(--brand-navy) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.site-navbar .navbar-brand {
+    letter-spacing: -0.01em;
+}
+
+.site-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.site-navbar .nav-link:hover,
+.site-navbar .nav-link:focus {
+    color: #fff;
+}
+
+.site-navbar .nav-user {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.9rem;
+}
+
+.site-navbar .nav-cta {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.site-navbar .nav-cta:hover {
+    background-color: #fff;
+    color: var(--brand-navy);
+    border-color: #fff;
+}
+
+/* Hero */
+.hero-panel {
+    background: #fff;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    padding: 3rem 2rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.hero-eyebrow {
+    color: var(--brand-accent);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.hero-lead {
+    max-width: 42rem;
+    color: var(--text-muted);
+}
+
+/* Cards */
+.feature-card {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.feature-card:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.feature-card .card-title {
+    font-weight: 600;
+    color: var(--brand-navy);
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--brand-accent);
+    border-color: var(--brand-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--brand-accent-hover);
+    border-color: var(--brand-accent-hover);
+}
+
+.btn-outline-primary {
+    color: var(--brand-accent);
+    border-color: var(--brand-accent);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+    background-color: var(--brand-accent);
+    border-color: var(--brand-accent);
+}
+
+/* Footer */
+.site-footer {
+    margin-top: 2rem;
+    padding: 1.75rem 0;
+    background-color: #fff;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.footer-brand {
+    font-weight: 600;
+    color: var(--brand-navy);
+    font-size: 0.95rem;
+}
+
+.footer-tagline {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Forms and tables inherit Bootstrap; subtle card polish for inner pages */
+.card {
+    border-color: var(--border-subtle);
+}
+
+.table {
+    --bs-table-bg: #fff;
 }
