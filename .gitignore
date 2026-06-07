@@ -40,3 +40,10 @@ certs/
 # nginx runtime state — the dev image generates these on first boot.
 nginx/logs/
 nginx/cache/
+
+# ----------------------------------------------------------------------------
+# Personal presentation — local only, never commit or push
+# ----------------------------------------------------------------------------
+*.pptx
+.venv-pptx/
+Final_Presentation_Note.md
