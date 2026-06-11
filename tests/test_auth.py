@@ -1,5 +1,5 @@
 """
-Course 506 Week 5 Skeleton — basic tests for the auth flow + S3 site routes.
+Job Tracker — basic tests for the auth flow + core routes.
 
 These run in CI on every PR (see .github/workflows/test.yml) and locally with
 `pytest` from the repo root. The pattern mirrors Week 4's regression test:
@@ -39,7 +39,7 @@ def test_home_page_loads(client):
     """Flask-rendered home page returns 200 and has the navbar."""
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Skeleton" in response.data
+    assert b"Job Tracker" in response.data
     # Navbar is present
     assert b"My Site" in response.data
     assert b"About" in response.data
