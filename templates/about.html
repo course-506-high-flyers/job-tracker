@@ -88,6 +88,14 @@ JobInsight      (id, company, rating, review_count, industry,
   <hr class="my-4">
 
   <div class="mb-5">
+    <h2 class="fw-semibold mb-3">Live deployment</h2>
+    <p><a href="https://35.86.191.136" target="_blank">https://35.86.191.136</a></p>
+    <p class="text-muted small">Production stack: nginx → gunicorn → Flask → Postgres on team EC2. HTTPS uses a self-signed certificate.</p>
+  </div>
+
+  <hr class="my-4">
+
+  <div class="mb-5">
     <h2 class="fw-semibold mb-3">Team S3 site</h2>
     <p><a href="{{ team_s3_site_url }}" target="_blank">{{ team_s3_site_url }}</a></p>
     <p class="text-muted small">The app checks the us-east-2 S3 website endpoint first, then falls back to us-west-2.</p>

@@ -18,6 +18,9 @@ URL: https://github.com/course-506-high-flyers/job-tracker
 
 ## Links the rubric asks for
 
+### Live URL (capstone submission)
+https://35.86.191.136
+
 ### 1. main with the stack committed
 Link: https://github.com/course-506-high-flyers/job-tracker/tree/main
 

@@ -8,6 +8,33 @@
 - Aden (db-and-security)
 - Darrell (server-side)
 - Olga (Coordinator)
+
+---
+
+## Live deployment
+
+**URL:** https://35.86.191.136
+
+The capstone submission is the team EC2 instance above (HTTPS, self-signed cert). Accept the browser certificate warning on first visit.
+
+---
+
+## Architecture (production)
+
+Browser → nginx (:443 TLS, :80 redirect) → gunicorn (:8000) → Flask → Postgres 16
+
+All services run via `docker compose` on a single EC2 host. Postgres is on the internal Docker network only (no public `:5432`).
+
+---
+
+## Work split
+
+| Member | Slice |
+|--------|-------|
+| Boma | Frontend templates, Bootstrap UI, nginx security headers (`nginx.conf` BOMA slot), coordination |
+| Darrell | Flask routes, GitHub OAuth, gunicorn/WSGI, company API integration |
+| Aden | Postgres schema, session/CSRF hardening, nginx edge (TLS, rate limits, attack-path 404s), deploy certs, `.gitignore` |
+
 ---
 
 ## Project

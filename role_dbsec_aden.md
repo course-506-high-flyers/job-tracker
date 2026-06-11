@@ -80,8 +80,9 @@ scanning doesn't fill our disk. (For the evidence above I temporarily
 re-enabled access logging on a sidecar copy; the production config keeps
 `access_log off` for these paths.)
 
-**Production re-run (2026-06-11, docker compose on EC2).** Same six probes
-via `curl -sk https://localhost<path>` with nginx, app, and db all Up:
+**Production re-run (2026-06-11, docker compose on EC2).** Team live URL:
+`https://35.86.191.136`. Same six probes via `curl -sk https://localhost<path>`
+on the deployed host with nginx, app, and db all Up:
 
 ```
 /wp-login.php      code=404

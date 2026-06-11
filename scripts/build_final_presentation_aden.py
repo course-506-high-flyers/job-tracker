@@ -81,7 +81,7 @@ def build():
         {
             "layout": layout_title,
             "title": "Job Application Tracker",
-            "subtitle": "High Flyers — Week 10 Final Presentation\nAden Abdulahi · DB & Security\nLive: https://18.118.119.37 · Repo: course-506-high-flyers/job-tracker",
+            "subtitle": "High Flyers — Week 10 Final Presentation\nAden Abdulahi · DB & Security\nLive: https://35.86.191.136 · Repo: course-506-high-flyers/job-tracker",
             "notes": "~30 sec. Introduce team (Boma, Darrell, Aden), project name, live URL.",
         },
         {
@@ -132,7 +132,7 @@ def build():
         {
             "title": "Live Demo Script (~2 min)",
             "bullets": [
-                "1. Open https://18.118.119.37 — accept self-signed cert if prompted",
+                "1. Open https://35.86.191.136 — accept self-signed cert if prompted",
                 "2. Sign in with GitHub OAuth → lands on My Applications",
                 "3. Add application (company, role, date) → view detail page",
                 "4. Trigger company insight — external API enrichment",
@@ -182,7 +182,7 @@ def build():
         {
             "title": "Thank You · Q&A",
             "bullets": [
-                "Live app: https://18.118.119.37",
+                "Live app: https://35.86.191.136",
                 "GitHub: github.com/course-506-high-flyers/job-tracker",
                 "Questions?",
             ],

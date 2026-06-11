@@ -14,9 +14,9 @@ Where this test runs
 ====================
 The base URL is read from the ``JOB_TRACKER_BASE_URL`` environment variable.
 Defaults to ``https://localhost:8443`` which matches the local nginx sidecar
-brought up during evidence collection. Override for the EC2 deploy:
+brought up during evidence collection. Override for the team EC2 deploy:
 
-    JOB_TRACKER_BASE_URL=https://<ec2-host> pytest tests/test_attack_paths.py
+    JOB_TRACKER_BASE_URL=https://35.86.191.136 pytest tests/test_attack_paths.py
 
 Self-signed dev certs make ``requests`` complain. We pass ``verify=False`` and
 silence the InsecureRequestWarning. In production, the cert is Let's Encrypt
@@ -25,8 +25,8 @@ and verify will be True automatically (if you flip the env-driven flag below).
 Skipped vs. failed
 ==================
 If the base URL is unreachable, the suite is skipped (not failed) so this
-file is safe to keep in CI before the prod stack exists. Once the EC2 deploy
-lands, point ``JOB_TRACKER_BASE_URL`` at it and the suite will run.
+file is safe to keep in CI before the prod stack exists. For the team deploy,
+point ``JOB_TRACKER_BASE_URL`` at ``https://35.86.191.136`` and the suite will run.
 """
 from __future__ import annotations
 
