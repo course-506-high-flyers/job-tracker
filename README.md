@@ -7,7 +7,6 @@
 - Boma (client-side)
 - Aden (db-and-security)
 - Darrell (server-side)
-- Olga (Coordinator)
 
 ---
 
@@ -165,7 +164,7 @@ These bylaws may be amended at any time, provided all four members agree in writ
 
 ---
 
-*README v1.0 — Week 4 setup. Subject to revision during Week 5 skeleton walkthrough.*
+*README v1.0 — Updated for final capstone submission.*
 
 ## Running the production stack
 
