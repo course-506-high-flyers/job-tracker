@@ -9,11 +9,11 @@ deploy pipeline + secrets handling as well, so all 9 questions below are mine.
 `nginx.conf`, `docker-compose.yml`, `tests/test_attack_paths.py`,
 `attack_paths.json`, `scripts/make-dev-certs.sh`.
 
-> Note: where this document quotes log lines or pytest output, the timestamps
-> are from a local nginx + Flask sidecar I stood up against this branch on
-> 2026-06-01. Once Darrell's EC2 deploy lands, the same probes will be re-run
-> against the production host and the lines below replaced verbatim. The
-> *shape* of the evidence will not change — same paths, same statuses.
+> Note: Q1 includes a local sidecar baseline (2026-06-01) for before/after
+> comparison, plus production evidence re-run on the deployed docker-compose
+> stack (2026-06-11). Production nginx keeps `access_log off` on attack-path
+> locations, so the live proof is curl status codes plus a zero delta in the
+> gunicorn access log — not nginx access-log lines for those paths.
 
 ---
 
@@ -80,9 +80,23 @@ scanning doesn't fill our disk. (For the evidence above I temporarily
 re-enabled access logging on a sidecar copy; the production config keeps
 `access_log off` for these paths.)
 
-**EC2 follow-up.** Once Darrell deploys, I will re-run the same six curls
-against `https://<ec2-host>` and replace the `172.19.0.1 -` lines above with
-the EC2 nginx access log entries. The paths and statuses will be identical.
+**Production re-run (2026-06-11, docker compose on EC2).** Same six probes
+via `curl -sk https://localhost<path>` with nginx, app, and db all Up:
+
+```
+/wp-login.php      code=404
+/.env              code=404
+/phpmyadmin/       code=404
+/backup.sql        code=404
+/test/login/aden   code=404
+/.env.save         code=404
+```
+
+Gunicorn access-log delta across these six probes was **0** — no new lines
+for any of the six paths appeared in `docker compose logs app` after the
+run. Production nginx returns 404 at the edge; because `access_log off` is
+set on these location blocks, the confirmation is status code + app-log
+silence, not nginx access-log lines.
 
 ---
 
@@ -161,7 +175,7 @@ triage:
 |---|---|---|
 | **pytest parametrize** (what I shipped) | Static list of paths; 33 assertions, runs in 2.5s, deterministic. | Picked. Cheap, lives in our existing pytest harness, runs in CI without extra infra. |
 | **OWASP ZAP automated scan** | Crawls the live app, runs ~50 active rules (SQLi, XSS, header checks). | Did not ship. Adds a Java runtime to CI and ZAP false-positives on the framework boilerplate. Worth running once manually before submission as a cross-check; would not gate every commit on it. |
-| **nuclei** with community templates | YAML-driven, ~7000 templates, very fast. | Did not ship. Same gating concern as ZAP. Will run once manually against `https://<ec2-host>` after Darrell deploys; templates for `wordpress-detect` and `exposed-env` will catch what my static list misses. |
+| **nuclei** with community templates | YAML-driven, ~7000 templates, very fast. | Did not ship. Same gating concern as ZAP. Worth running once manually against the deployed host; templates for `wordpress-detect` and `exposed-env` would catch what my static list misses. |
 | **AFL-style fuzzer / wfuzz** | Random / dictionary-based path enumeration. | Rejected for this assignment. The point of the static list is to have a regression suite a marker can read. A fuzzer's output is "no findings", not "we explicitly tested these 16 paths". |
 | **Behavioral test: 6 failed `/login` posts → expect 429** | Verifies the rate-limit zone, not just the 404 list. | Considered, kept *separate* from `test_attack_paths.py`. The attack-path test is read-only GETs; rate-limit verification needs POSTs and a clean rate window between runs, which is a different flakiness profile. A standalone `test_rate_limit.py` is the example shape if this is ever picked up; not in scope for this PR. |
 

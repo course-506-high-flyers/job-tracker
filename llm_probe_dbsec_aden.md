@@ -109,7 +109,7 @@ no web browsing, no MCP servers — pure context-in / text-out.
 > runbook in `coord_session.md` plus a `pg_dump` + restore drill.
 >
 > **4. Subdomain / certificate hijack on the EC2 host.**
-> You'll use Let's Encrypt for `<ec2-host>` once Darrell deploys. Your
+> On the deployed stack we use self-signed dev certs via `scripts/make-dev-certs.sh`; Let's Encrypt would be the production upgrade. Your
 > `nginx.conf` has the `/.well-known/acme-challenge` carve-out, which is
 > correct, but you don't pin the cert issuer (CAA records on the DNS zone).
 > An attacker who compromises another CA could issue a valid cert for your

@@ -71,8 +71,8 @@ The page must not reveal whether the application ID belongs to another user.
 
 ## 4. Execution Log
 
-- **Commit tested:** `77d59a8`
-- **Step 1:** PENDING - needs to be rerun on the deployed EC2/Docker environment.
+- **Commit tested:** `0aea273` (EC2 deploy; local `main` may be ahead)
+- **Step 1:** PASS - On EC2 (2026-06-11), `docker compose ps` shows `job-tracker-nginx-1`, `job-tracker-app-1`, and `job-tracker-db-1` all Up; db healthy; nginx publishing :80 and :443.
 - **Step 2:** PASS - On EC2, schema metadata test passed in Docker: `1 passed in 0.61s`. Direct Postgres `\d users`, `\d job_applications`, and `\d job_insights` inspection confirmed required tables, NOT NULL columns, `job_applications_user_id_fkey` with `ON DELETE CASCADE`, unique `(user_id, company, position)`, and unique `job_insights.company`. One typo (`jon_applications`) returned no relation, then the correct table name passed.
 - **Step 3:** PASS - Direct SQL duplicate test on EC2 used test user id `2`. First `job_applications` insert succeeded; second identical `(user_id, company, position)` insert failed with `duplicate key value violates unique constraint "uq_job_applications_user_company_position"`. An initial `<USER_ID>` placeholder attempt caused a syntax error and was corrected to `2`.
 - **Step 4:** PASS - Direct SQL cascade test on EC2 deleted disposable user id `2` with `DELETE 1`; `SELECT * FROM job_applications WHERE user_id = 2` returned `(0 rows)`, confirming `ON DELETE CASCADE` removed the owned application row.
