@@ -175,25 +175,29 @@ applications return.
 | 8 | PASS | Form re-renders. Amazon preserved in company field. Error feedback shown. |
 | 9 | PASS | Edit form pre-fills all fields correctly. Status pre-selected. |
 | 10 | PASS | Status updated to Interviewing. Flash message visible. |
-| 11 | PASS | Insight section present. Routes not yet live — API call not tested. Will retest after Darrell merges routes. |
+| 11 | PASS | Insight section present and route tested on live team EC2. Fetch company data action reached the backend and returned the handled fallback message: `Company data temporarily unavailable.` |
 | 12 | PASS | Application deleted. Redirect and flash message correct. |
 | 13 | PASS | Filter works correctly. Dropdown state preserved. |
 
-### Finding 1 — Insight section untestable until server-side routes merged
+### Finding 1 — Insight route verified on live deployment
 
-**Symptom:** `/applications/<id>/insight` returns 404 because server-side
-routes are not yet implemented.
+**Symptom:** Earlier testing could only verify that the insight card rendered,
+because `/applications/<id>/insight` was not yet available in the integrated
+server-side routes.
 
-**Root cause:** Client-side templates are complete but depend on Darrell's
-route implementation. The insight card renders correctly in the template
-but the refresh link cannot be exercised until routes exist.
+**Retest result:** On the team EC2 deployment, GitHub OAuth login succeeded,
+an application was created and persisted, and the Company Insights action
+was exercised from the application detail page. The backend route responded
+with the handled fallback message `Company data temporarily unavailable.`
 
-**Fix:** Will retest Step 11 after Darrell's PR is merged. No template
-changes needed.
+**Conclusion:** The client-side insight control is now connected to the
+server-side route. External company data may be unavailable without live API
+credentials or third-party API availability, but the integrated route works
+and fails gracefully instead of returning 404.
 
-**Lesson:** Client-side e2e walks surface integration dependencies that
-pytest cannot — the template is correct but the system is incomplete
-without the server-side routes.
+**Lesson:** Client-side e2e walks are useful for catching integration gaps;
+after backend routes were merged and deployed, the same UI path could be
+tested end-to-end.
 
 ---
 
@@ -202,4 +206,4 @@ without the server-side routes.
 | Role | Steps |
 |------|-------|
 | Client-side (Boma) | All steps 1–13 |
-| Server-side (Darrell) | Step 11 (insight API hit — pending) |
+| Server-side (Darrell) | Step 11 insight API route verified on live team EC2 |
